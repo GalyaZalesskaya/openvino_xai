@@ -21,9 +21,14 @@ from openvino_xai.explainer.utils import format_to_hwc, infer_size_from_image
 def resize(saliency_map: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
     """Resize saliency map."""
     x = saliency_map.transpose((1, 2, 0))
-    x = cv2.resize(x, output_size[::-1])
-    if x.ndim == 2:
-        return np.expand_dims(x, axis=0)
+
+    resized_channels = []
+    for c in range(x.shape[-1]):
+        # Resize fails for tensors with 700 and more channels (targets=all classes scenario)
+        resized_channel = cv2.resize(x[:, :, c], output_size[::-1])
+        resized_channels.append(resized_channel)
+    x = np.stack(resized_channels, axis=-1)
+
     return x.transpose((2, 0, 1))
 
 
