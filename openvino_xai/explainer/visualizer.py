@@ -15,7 +15,7 @@ from openvino_xai.explainer.explanation import (
     Explanation,
     Layout,
 )
-from openvino_xai.explainer.utils import format_to_hwc, infer_size_from_image
+from openvino_xai.explainer.utils import format_to_bhwc, infer_size_from_image
 
 
 def resize(saliency_map: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
@@ -125,7 +125,7 @@ class Visualizer:
         :type overlay_weight: float
         """
         if original_input_image is not None:
-            original_input_image = format_to_hwc(original_input_image)
+            original_input_image = format_to_bhwc(original_input_image)
 
         saliency_map_dict = explanation.saliency_map
         class_idx_to_return = list(saliency_map_dict.keys())
