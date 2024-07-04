@@ -172,6 +172,14 @@ def format_to_hwc(image: np.ndarray) -> np.ndarray:
     return image
 
 
+def is_bhwc_layout(image: np.array) -> bool:
+    """Check whether layout of image is BHWC."""
+    _, dim0, dim1, dim2 = image.shape
+    if dim0 > dim2 and dim1 > dim2:  # bhwc layout
+        return True
+    return False
+
+
 def infer_size_from_image(image: np.ndarray) -> Tuple[int, int]:
     """Estimate image size."""
     image = format_to_hwc(image)
