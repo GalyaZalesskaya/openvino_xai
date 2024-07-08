@@ -69,6 +69,11 @@ def test_resize():
     resized_map = resize(input_saliency_map, (5, 5))
     assert resized_map.shape == (1001, 5, 5)
 
+    # Test resizing functionality for 2D saliency maps
+    input_saliency_map = np.random.randint(0, 255, (3, 3), dtype=np.uint8)
+    resized_map = resize(input_saliency_map, (5, 5))
+    assert resized_map.shape == (5, 5)
+
 
 def test_colormap():
     input_saliency_map = np.random.randint(0, 255, (1, 3, 3), dtype=np.uint8)
