@@ -31,12 +31,13 @@ def resize(saliency_map: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray
         end_idx = min(start_idx + batch_size, channels)
         batch = x[:, :, start_idx:end_idx]
         resized_batch = cv2.resize(batch, output_size[::-1])
+
+        # Ensure resized batch has three dimensions
+        if resized_batch.ndim == 2:
+            resized_batch = np.expand_dims(resized_batch, axis=2)
         resized_batches.append(resized_batch)
+
     x = np.concatenate(resized_batches, axis=-1)
-
-    if x.ndim == 2:
-        return np.expand_dims(x, axis=0)
-
     return x.transpose((2, 0, 1))
 
 
