@@ -41,7 +41,7 @@ class TestExplanation:
         save_path = tmp_path / "saliency_maps"
 
         explanation = self._get_explanation()
-        explanation.save(save_path, "test_map")
+        explanation.save(save_path, prefix_name="test_map")
         assert os.path.isfile(save_path / "test_map_target_aeroplane.jpg")
         assert os.path.isfile(save_path / "test_map_target_bird.jpg")
 
@@ -55,8 +55,22 @@ class TestExplanation:
         assert os.path.isfile(save_path / "test_map_target_0.jpg")
         assert os.path.isfile(save_path / "test_map_target_2.jpg")
 
+        explanation = self._get_explanation()
+        explanation.save(save_path, suffix_name="", postfix_name="map")
+        assert os.path.isfile(save_path / "aeroplane_map.jpg")
+        assert os.path.isfile(save_path / "bird_map.jpg")
+
+        explanation = self._get_explanation()
+        explanation.save(save_path, postfix_name="conf", confidence_scores={0: 0.92, 2: 0.85})
+        assert os.path.isfile(save_path / "target_aeroplane_0.92_conf.jpg")
+        assert os.path.isfile(save_path / "target_bird_0.85_conf.jpg")
+
         explanation = self._get_explanation(saliency_maps=SALIENCY_MAPS_IMAGE, label_names=None)
-        explanation.save(save_path, "test_map")
+        explanation.save(save_path, prefix_name="test_map")
+        assert os.path.isfile(save_path / "test_map_activation_map.jpg")
+
+        explanation = self._get_explanation(saliency_maps=SALIENCY_MAPS_IMAGE, label_names=None)
+        explanation.save(save_path, prefix_name="test_map", suffix_name="")
         assert os.path.isfile(save_path / "test_map.jpg")
 
     def _get_explanation(self, saliency_maps=SALIENCY_MAPS, label_names=VOC_NAMES):

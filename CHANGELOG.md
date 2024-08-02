@@ -9,6 +9,7 @@
 ### What's Changed
 
 * Enable AISE: Adaptive Input Sampling for Explanation of Black-box Models by @negvet in https://github.com/openvinotoolkit/openvino_xai/pull/49
+* Make the naming of saved saliency maps more flexible and return confidence scores by GalyaZalesskaya in https://github.com/openvinotoolkit/openvino_xai/pull/51
 
 ### Known Issues
 
