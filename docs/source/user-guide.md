@@ -13,12 +13,16 @@ Content:
 - [OpenVINO™ Explainable AI Toolkit User Guide](#openvino-explainable-ai-toolkit-user-guide)
   - [OpenVINO XAI Architecture](#openvino-xai-architecture)
   - [`Explainer`: the main interface to XAI algorithms](#explainer-the-main-interface-to-xai-algorithms)
+    - [Create Explainer for OpenVINO Model instance](#create-explainer-for-openvino-model-instance)
+    - [Create Explainer from OpenVINO IR file](#create-explainer-from-openvino-ir-file)
+    - [Create Explainer from ONNX model file](#create-explainer-from-onnx-model-file)
   - [Basic usage: Auto mode](#basic-usage-auto-mode)
     - [Running without `preprocess_fn`](#running-without-preprocess_fn)
     - [Specifying `preprocess_fn`](#specifying-preprocess_fn)
   - [White-Box mode](#white-box-mode)
   - [Black-Box mode](#black-box-mode)
   - [XAI insertion (white-box usage)](#xai-insertion-white-box-usage)
+  - [Saving saliency maps](#saving-saliency-maps)
   - [Example scripts](#example-scripts)
 
 
@@ -325,6 +329,78 @@ model_xai = xai.insert_xai(
 )  # type: ov.Model
 
 # ***** Downstream task: user's code that infers model_xai and picks 'saliency_map' output *****
+```
+
+## Saving saliency maps
+
+You can easily save saliency maps with flexible naming options, including prefix, suffix, and postfix. Additionally, you can include the confidence score for each class in the saved saliency map's name.
+
+```python
+import cv2
+import numpy as np
+import openvino.runtime as ov
+from openvino.runtime.utils.data_helpers.wrappers import OVDict
+import openvino_xai as xai
+
+def preprocess_fn(image: np.ndarray) -> np.ndarray:
+    """Preprocess the input image."""
+    resized_image = cv2.resize(src=image, dsize=(224, 224))
+    expanded_image = np.expand_dims(resized_image, 0)
+    return expanded_image
+
+def postprocess_fn(output: OVDict):
+    """Postprocess the model output."""
+    return output["logits"]
+
+# Generate and process saliency maps (as many as required, sequentially)
+image = cv2.imread("path/to/image.jpg")
+
+# Create ov.Model
+MODEL_PATH = "path/to/model.xml"
+model = ov.Core().read_model(MODEL_PATH)  # type: ov.Model
+
+# Get predicted confidences for the image
+compiled_model = core.compile_model(model=model, device_name="AUTO")
+logits = compiled_model([preprocess_fn(image)])[0]
+postprocessed_logits = postprocess_fn(logits)[0]
+result_index = np.argmax(postprocessed_logits)
+result_scores = postprocessed_logits[result_index]
+
+# Generate dict {class_index: confidence} to save saliency maps
+scores_dict = {i: score for i, score in enumerate(result_scores)}
+
+# The Explainer object will prepare and load the model once in the beginning
+explainer = xai.Explainer(
+    model,
+    task=xai.Task.CLASSIFICATION,
+    preprocess_fn=preprocess_fn,
+)
+
+voc_labels = [
+    'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable',
+    'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor'
+]
+
+# Run explanation
+explanation = explainer(
+    image,
+    explain_mode=ExplainMode.WHITEBOX,
+    label_names=voc_labels,
+    target_explain_labels=1,  # target classes to explain
+)
+
+# Save saliency maps flexibly
+OUTPUT_PATH = "output_path"
+explanation.save(OUTPUT_PATH, "image_name")  # image_name_target_aeroplane.jpg
+explanation.save(OUTPUT_PATH, prefix_name="image_name")  # image_name_target_aeroplane.jpg
+explanation.save(OUTPUT_PATH)  # target_aeroplane.jpg
+# Avoid "target" in names
+explanation.save(OUTPUT_PATH, prefix_name="image_name", target_suffix="")  # image_name_aeroplane.jpg
+explanation.save(OUTPUT_PATH, target_suffix="", postfix_name="class")  # aeroplane_class.jpg
+explanation.save(OUTPUT_PATH, target_suffix="")  # aeroplane.jpg
+
+# Save saliency maps with confidence scores
+explanation.save(OUTPUT_PATH, postfix_name="conf", confidence_scores=scores_dict)  # target_aeroplane_conf_0.92.jpg```
 ```
 
 
