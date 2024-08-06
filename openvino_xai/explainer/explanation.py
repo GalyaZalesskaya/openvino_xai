@@ -165,12 +165,15 @@ class Explanation:
         """
 
         target_indices = get_target_indices(targets, self.label_names)
-        checked_indices = []
-        for cls_idx in target_indices:
-            if cls_idx in self.saliency_map:
-                checked_indices.append(cls_idx)
-            else:
-                print(f"Provided class index {cls_idx} is not available among saliency maps.")
+        checked_indices: List[int] = []
+        if explains_all(targets):
+            checked_indices = list(map(int, self.saliency_map.keys()))
+        else:
+            for cls_idx in target_indices:
+                if cls_idx in self.saliency_map:
+                    checked_indices.append(cls_idx)
+                else:
+                    print(f"Provided class index {cls_idx} is not available among saliency maps.")
 
         if backend == "matplotlib":
             self._plot_matplotlib(checked_indices)

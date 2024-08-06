@@ -76,6 +76,8 @@ class TestExplanation:
         explanation.plot([0, 2], backend="matplotlib")
         # Targets as label names
         explanation.plot(["aeroplane", "bird"], backend="matplotlib")
+        # Plot all saliency maps
+        explanation.plot(-1, backend="matplotlib")
 
         # CV backend
         explanation._plot_cv([0, 2], wait_time=1)
