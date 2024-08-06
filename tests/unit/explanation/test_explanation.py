@@ -4,6 +4,7 @@
 import os
 
 import numpy as np
+import pytest
 
 from openvino_xai.explainer.explanation import Explanation
 from tests.unit.explanation.test_explanation_utils import VOC_NAMES
@@ -67,3 +68,23 @@ class TestExplanation:
             label_names=label_names,
         )
         return explanation
+
+    def test_plot(self, capsys):
+        explanation = self._get_explanation()
+
+        # Matplotloib backend
+        explanation.plot([0, 2], backend="matplotlib")
+        # Targets as label names
+        explanation.plot(["aeroplane", "bird"], backend="matplotlib")
+
+        # CV backend
+        explanation._plot_cv([0, 2], wait_time=1)
+
+        # Invalid backend
+        with pytest.raises(ValueError):
+            explanation.plot([0, 1], backend="invalid")
+
+        # Class index that is not in saliency maps will be ommitted with warning
+        explanation.plot([0, 3])
+        captured = capsys.readouterr()
+        assert "Provided class index 3 is not available among saliency maps." in captured.out

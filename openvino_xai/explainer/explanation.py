@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
 from openvino_xai.explainer.utils import (
@@ -148,6 +149,62 @@ class Explanation:
                     target_name = str(cls_idx)
             image_name = f"{save_name}_target_{target_name}.jpg" if save_name else f"target_{target_name}.jpg"
             cv2.imwrite(os.path.join(dir_path, image_name), img=map_to_save)
+
+    def plot(self, targets: np.ndarray | List[int | str], backend="matplotlib") -> None:
+        """
+        Plots saliency maps using matplotlib.
+
+        This function takes a list or array of target class indices or names, retrieves the corresponding saliency maps,
+        and plots them using matplotlib. If a provided class index is not available among the saliency maps, a message
+        is printed.
+
+        Args:
+            targets (np.ndarray | List[int | str]): A list or array of target class indices or names to plot.
+            backend (str): The plotting backend to use. Can be either 'matplotlib' (recommended for Jupyter)
+            or 'cv' (recommended for python). Default is 'matplotlib'.
+        """
+
+        target_indices = get_target_indices(targets, self.label_names)
+        checked_indices = []
+        for cls_idx in target_indices:
+            if cls_idx in self.saliency_map:
+                checked_indices.append(cls_idx)
+            else:
+                print(f"Provided class index {cls_idx} is not available among saliency maps.")
+
+        if backend == "matplotlib":
+            self._plot_matplotlib(checked_indices)
+        elif backend == "cv":
+            self._plot_cv(checked_indices)
+        else:
+            raise ValueError(f"Unknown backend {backend}. Use 'matplotlib' or 'cv'.")
+
+    def _plot_matplotlib(self, checked_indices: list[int]) -> None:
+        """Plots saliency maps using matplotlib."""
+        _, axes = plt.subplots(len(checked_indices), 1)
+        axes = [axes] if len(checked_indices) == 1 else axes
+
+        for i, cls_idx in enumerate(checked_indices):
+            label_name = f"{self.label_names[cls_idx]} ({cls_idx})" if self.label_names else str(cls_idx)
+            map_to_plot = self.saliency_map[cls_idx]
+
+            axes[i].imshow(map_to_plot)
+            axes[i].axis("off")  # Hide the axis
+            axes[i].set_title(f"Class {label_name}")
+
+        plt.tight_layout()
+        plt.show()
+
+    def _plot_cv(self, checked_indices: list[int], wait_time: int = 3000) -> None:
+        """Plots saliency maps using OpenCV."""
+        for cls_idx in checked_indices:
+            label_name = f"{self.label_names[cls_idx]} ({cls_idx})" if self.label_names else str(cls_idx)
+            map_to_plot = self.saliency_map[cls_idx]
+            map_to_plot = cv2.cvtColor(map_to_plot, cv2.COLOR_BGR2RGB)
+
+            cv2.imshow(f"Class {label_name}", map_to_plot)
+            cv2.waitKey(wait_time)
+        cv2.destroyAllWindows()
 
 
 class Layout(Enum):
