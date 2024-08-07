@@ -69,9 +69,11 @@ class TestExplanation:
         )
         return explanation
 
-    def test_plot(self, capsys):
+    def test_plot(self):
         explanation = self._get_explanation()
 
+        # Plot all saliency maps
+        explanation.plot()
         # Matplotloib backend
         explanation.plot([0, 2], backend="matplotlib")
         # Targets as label names
@@ -86,7 +88,5 @@ class TestExplanation:
         with pytest.raises(ValueError):
             explanation.plot([0, 1], backend="invalid")
 
-        # Class index that is not in saliency maps will be ommitted with warning
+        # Class index that is not in saliency maps will be ommitted
         explanation.plot([0, 3])
-        captured = capsys.readouterr()
-        assert "Provided class index 3 is not available among saliency maps." in captured.out

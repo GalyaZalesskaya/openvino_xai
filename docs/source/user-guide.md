@@ -375,14 +375,14 @@ explanation = explainer(
 )
 
 # Use matplotlib (recommended for Jupyter) - default backend
-explanation.plot(targets=[7, 11], backend="matplotlib")
-explanation.plot(targets=-1, backend="matplotlib")  # plot saliency maps for all classes
-explanation.plot(targets=['cat', 'dog'], backend="matplotlib")
+explanation.plot() # plot all saliency map
+explanation.plot(targets=[7], backend="matplotlib")
+explanation.plot(targets=["cat"], backend="matplotlib")
 
-# Use OpenCV (recommended for Python) - will open new windows with maps
-explanation.plot(targets=[7, 11], backend="cv")
-explanation.plot(targets=-1, backend="cv")  # plot saliency maps for all classes
-explanation.plot(targets=['cat', 'dog'], backend="cv")
+# Use OpenCV (recommended for Python) - will open new windows with saliency maps
+explanation.plot(backend="cv") # plot all saliency map
+explanation.plot(targets=[7], backend="cv")
+explanation.plot(targets=["cat"], backend="cv")
 ```
 
 ## Example scripts
