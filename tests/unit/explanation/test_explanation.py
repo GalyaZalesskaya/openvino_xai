@@ -72,21 +72,28 @@ class TestExplanation:
     def test_plot(self):
         explanation = self._get_explanation()
 
-        # Plot all saliency maps
-        explanation.plot()
-        # Matplotloib backend
-        explanation.plot([0, 2], backend="matplotlib")
-        # Targets as label names
-        explanation.plot(["aeroplane", "bird"], backend="matplotlib")
-        # Plot all saliency maps
-        explanation.plot(-1, backend="matplotlib")
-
-        # CV backend
-        explanation._plot_cv([0, 2], wait_time=1)
-
         # Invalid backend
         with pytest.raises(ValueError):
-            explanation.plot([0, 1], backend="invalid")
+            explanation.plot(backend="invalid")
 
-        # Class index that is not in saliency maps will be ommitted
-        explanation.plot([0, 3])
+        try:
+            # Plot all saliency maps
+            explanation.plot()
+            # Matplotloib backend
+            explanation.plot([0, 2], backend="matplotlib")
+            # Targets as label names
+            explanation.plot(["aeroplane", "bird"], backend="matplotlib")
+            # Plot all saliency maps
+            explanation.plot(-1, backend="matplotlib")
+            # Class index that is not in saliency maps will be ommitted
+            explanation.plot([0, 3])
+
+            # CV backend
+            explanation._plot_cv([0, 2], wait_time=1)
+
+            # Plot activation map
+            explanation = self._get_explanation(saliency_maps=SALIENCY_MAPS_IMAGE, label_names=None)
+            explanation.plot()
+
+        except Exception as e:
+            pytest.fail(f"Test_plot function raised an exception: {e}")

@@ -77,7 +77,7 @@ class Explanation:
     @property
     def targets(self):
         """Explained targets."""
-        return list(map(int, self._saliency_map.keys()))
+        return list(self._saliency_map.keys())
 
     @staticmethod
     def _check_saliency_map(saliency_map: np.ndarray):
@@ -178,7 +178,7 @@ class Explanation:
         else:
             raise ValueError(f"Unknown backend {backend}. Use 'matplotlib' or 'cv'.")
 
-    def _plot_matplotlib(self, class_indices: list[int]) -> None:
+    def _plot_matplotlib(self, class_indices: list[int | str]) -> None:
         """Plots saliency maps using matplotlib."""
         if len(class_indices) <= 4:  # Horizontal layout
             _, axes = plt.subplots(len(class_indices), 1)
@@ -187,7 +187,11 @@ class Explanation:
         axes = [axes] if len(class_indices) == 1 else axes
 
         for i, cls_idx in enumerate(class_indices):
-            label_name = f"{self.label_names[cls_idx]} ({cls_idx})" if self.label_names else str(cls_idx)
+            if self.label_names and isinstance(cls_idx, int):
+                label_name = f"{self.label_names[cls_idx]} ({cls_idx})"
+            else:
+                label_name = str(cls_idx)
+
             map_to_plot = self.saliency_map[cls_idx]
 
             axes[i].imshow(map_to_plot)
@@ -197,10 +201,14 @@ class Explanation:
         plt.tight_layout()
         plt.show()
 
-    def _plot_cv(self, class_indices: list[int], wait_time: int = 0) -> None:
+    def _plot_cv(self, class_indices: list[int | str], wait_time: int = 0) -> None:
         """Plots saliency maps using OpenCV."""
         for cls_idx in class_indices:
-            label_name = f"{self.label_names[cls_idx]} ({cls_idx})" if self.label_names else str(cls_idx)
+            if self.label_names and isinstance(cls_idx, int):
+                label_name = f"{self.label_names[cls_idx]} ({cls_idx})"
+            else:
+                label_name = str(cls_idx)
+
             map_to_plot = self.saliency_map[cls_idx]
             map_to_plot = cv2.cvtColor(map_to_plot, cv2.COLOR_BGR2RGB)
 
