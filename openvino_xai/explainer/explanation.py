@@ -144,8 +144,11 @@ class Explanation:
         Dumps saliency map images to the specified directory.
 
         Allows flexibly name the files with the prefix, suffix, and postfix.
+        For the name 'image_name_target_aeroplane.jpg': prefix = 'image_name',
+        suffix = 'target', label name = 'aeroplane', postfix = ''.
+
         save(output_dir) -> target_aeroplane.jpg
-        save(output_dir, prefix_name="test_map", target_suffix="") -> test_map_aeroplane.jpg
+        save(output_dir, prefix_name="test_map", suffix_name="") -> test_map_aeroplane.jpg
         save(output_dir, prefix_name="test_map") -> test_map_target_aeroplane.jpg
         save(output_dir, postfix_name="conf", confidence_scores=scores) -> target_aeroplane_conf_0.92.jpg
 

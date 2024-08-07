@@ -100,13 +100,13 @@ Here's the example how we can avoid passing `preprocess_fn` by preprocessing dat
 ```python
 import cv2
 import numpy as np
+from typing import Mapping
 import openvino.runtime as ov
-from openvino.runtime.utils.data_helpers.wrappers import OVDict
 
 import openvino_xai as xai
 
 
-def postprocess_fn(x: OVDict):
+def postprocess_fn(x: Mapping):
     # Implementing our own post-process function based on the model's implementation
     # Return "logits" model output
     return x["logits"]
@@ -146,8 +146,8 @@ explanation.save("output_path", "name")
 ```python
 import cv2
 import numpy as np
+from typing import Mapping
 import openvino.runtime as ov
-from openvino.runtime.utils.data_helpers.wrappers import OVDict
 
 import openvino_xai as xai
 
@@ -158,7 +158,7 @@ def preprocess_fn(x: np.ndarray) -> np.ndarray:
     x = np.expand_dims(x, 0)
     return x
 
-def postprocess_fn(x: OVDict):
+def postprocess_fn(x: Mapping):
     # Implementing our own post-process function based on the model's implementation
     # Return "logits" model output
     return x["logits"]
@@ -339,7 +339,7 @@ You can easily save saliency maps with flexible naming options, including prefix
 import cv2
 import numpy as np
 import openvino.runtime as ov
-from openvino.runtime.utils.data_helpers.wrappers import OVDict
+from typing import Mapping
 import openvino_xai as xai
 
 def preprocess_fn(image: np.ndarray) -> np.ndarray:
@@ -348,7 +348,7 @@ def preprocess_fn(image: np.ndarray) -> np.ndarray:
     expanded_image = np.expand_dims(resized_image, 0)
     return expanded_image
 
-def postprocess_fn(output: OVDict):
+def postprocess_fn(output: Mapping):
     """Postprocess the model output."""
     return output["logits"]
 
@@ -391,13 +391,14 @@ explanation = explainer(
 
 # Save saliency maps flexibly
 OUTPUT_PATH = "output_path"
+explanation.save(OUTPUT_PATH)  # target_aeroplane.jpg
 explanation.save(OUTPUT_PATH, "image_name")  # image_name_target_aeroplane.jpg
 explanation.save(OUTPUT_PATH, prefix_name="image_name")  # image_name_target_aeroplane.jpg
-explanation.save(OUTPUT_PATH)  # target_aeroplane.jpg
-# Avoid "target" in names
-explanation.save(OUTPUT_PATH, prefix_name="image_name", target_suffix="")  # image_name_aeroplane.jpg
-explanation.save(OUTPUT_PATH, target_suffix="", postfix_name="class")  # aeroplane_class.jpg
-explanation.save(OUTPUT_PATH, target_suffix="")  # aeroplane.jpg
+
+# Avoid "target" in salinecy map names
+explanation.save(OUTPUT_PATH, suffix_name="")  # aeroplane.jpg
+explanation.save(OUTPUT_PATH, suffix_name="", postfix_name="class")  # aeroplane_class.jpg
+explanation.save(OUTPUT_PATH, prefix_name="image_name", suffix_name="")  # image_name_aeroplane.jpg
 
 # Save saliency maps with confidence scores
 explanation.save(OUTPUT_PATH, postfix_name="conf", confidence_scores=scores_dict)  # target_aeroplane_conf_0.92.jpg```
