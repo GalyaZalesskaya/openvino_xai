@@ -135,32 +135,32 @@ class Explanation:
     def save(
         self,
         dir_path: Path | str,
-        prefix_name: str | None = "",
-        suffix_name: str | None = "target",
-        postfix_name: str | None = "",
+        image_name_prefix: str | None = "",
+        target_prefix: str | None = "target",
+        target_suffix: str | None = "",
         confidence_scores: Dict[int, float] | None = None,
     ) -> None:
         """
         Dumps saliency map images to the specified directory.
 
-        Allows flexibly name the files with the prefix, suffix, and postfix.
+        Allows flexibly name the files with the image_name_prefix, target_prefix, and target_suffix.
         For the name 'image_name_target_aeroplane.jpg': prefix = 'image_name',
-        suffix = 'target', label name = 'aeroplane', postfix = ''.
+        target_prefix = 'target', label name = 'aeroplane', target_suffix = ''.
 
         save(output_dir) -> target_aeroplane.jpg
-        save(output_dir, prefix_name="test_map", suffix_name="") -> test_map_aeroplane.jpg
-        save(output_dir, prefix_name="test_map") -> test_map_target_aeroplane.jpg
-        save(output_dir, postfix_name="conf", confidence_scores=scores) -> target_aeroplane_conf_0.92.jpg
+        save(output_dir, image_name_prefix="test_map", target_prefix="") -> test_map_aeroplane.jpg
+        save(output_dir, image_name_prefix="test_map") -> test_map_target_aeroplane.jpg
+        save(output_dir, target_suffix="conf", confidence_scores=scores) -> target_aeroplane_conf_0.92.jpg
 
         Parameters:
         :param dir_path: The directory path where the saliency maps will be saved.
         :type dir_path: Path | str
-        :param prefix_name: Optional prefix for the file names. Default is an empty string.
-        :type prefix_name: str | None
-        :param suffix_name: Optional suffix for the target. Default is "target".
-        :type suffix_name: str | None
-        :param postfix_name: Optional postfix for the file names. Default is an empty string.
-        :type postfix_name: str | None
+        :param image_name_prefix: Optional prefix for the file names. Default is an empty string.
+        :type image_name_prefix: str | None
+        :param target_prefix: Optional suffix for the target. Default is "target".
+        :type target_prefix: str | None
+        :param target_suffix: Optional suffix for the saliency map name. Default is an empty string.
+        :type target_suffix: str | None
         :param confidence_scores: Dict with confidence scores for each class to saliency maps with them1 Default is None.
         :type confidence_scores: Dict[int, float] | None
 
@@ -168,28 +168,30 @@ class Explanation:
 
         os.makedirs(dir_path, exist_ok=True)
 
-        prefix_name = f"{prefix_name}_" if prefix_name != "" else prefix_name
-        postfix_name = f"_{postfix_name}" if postfix_name != "" else postfix_name
-        template = f"{{prefix_name}}{{suffix_name}}{{target_name}}{postfix_name}.jpg"
+        image_name_prefix = f"{image_name_prefix}_" if image_name_prefix != "" else image_name_prefix
+        target_suffix = f"_{target_suffix}" if target_suffix != "" else target_suffix
+        template = f"{{image_name_prefix}}{{target_prefix}}{{target_name}}{target_suffix}.jpg"
 
-        suffix_name = f"{suffix_name}_" if suffix_name != "" else suffix_name
+        target_prefix = f"{target_prefix}_" if target_prefix != "" else target_prefix
         for cls_idx, map_to_save in self._saliency_map.items():
             map_to_save = cv2.cvtColor(map_to_save, code=cv2.COLOR_RGB2BGR)
             if isinstance(cls_idx, str):
                 target_name = ""
-                if suffix_name == "target_":
+                if target_prefix == "target_":
                     # Default activation map suffix
-                    suffix_name = "activation_map"
-                elif suffix_name == "":
+                    target_prefix = "activation_map"
+                elif target_prefix == "":
                     # Remove the underscore in case of empty suffix
-                    prefix_name = prefix_name[:-1] if prefix_name.endswith("_") else prefix_name
+                    image_name_prefix = image_name_prefix[:-1] if image_name_prefix.endswith("_") else image_name_prefix
             else:
                 target_name = self.label_names[cls_idx] if self.label_names else str(cls_idx)
                 if confidence_scores:
                     class_confidence = confidence_scores[cls_idx]
                     target_name = f"{target_name}_{class_confidence:.2f}"
 
-            image_name = template.format(prefix_name=prefix_name, suffix_name=suffix_name, target_name=target_name)
+            image_name = template.format(
+                image_name_prefix=image_name_prefix, target_prefix=target_prefix, target_name=target_name
+            )
             cv2.imwrite(os.path.join(dir_path, image_name), img=map_to_save)
 
 

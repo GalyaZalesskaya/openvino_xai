@@ -333,7 +333,15 @@ model_xai = xai.insert_xai(
 
 ## Saving saliency maps
 
-You can easily save saliency maps with flexible naming options, including prefix, suffix, and postfix. Additionally, you can include the confidence score for each class in the saved saliency map's name.
+You can easily save saliency maps with flexible naming options, including image name as prefix, so saliency maps from the same image will start the same, target prefix, terget suffix.
+
+For the name `image_name_target_aeroplane.jpg`:
+- image_name_prefix = `image_name`,
+- target_prefix = `target`,
+- label name = `aeroplane`,
+- target_suffix = ``.
+
+Additionally, you can include the confidence score for each class in the saved saliency map's name.
 
 ```python
 import cv2
@@ -393,15 +401,15 @@ explanation = explainer(
 OUTPUT_PATH = "output_path"
 explanation.save(OUTPUT_PATH)  # target_aeroplane.jpg
 explanation.save(OUTPUT_PATH, "image_name")  # image_name_target_aeroplane.jpg
-explanation.save(OUTPUT_PATH, prefix_name="image_name")  # image_name_target_aeroplane.jpg
+explanation.save(OUTPUT_PATH, image_name_prefix="image_name")  # image_name_target_aeroplane.jpg
 
 # Avoid "target" in salinecy map names
-explanation.save(OUTPUT_PATH, suffix_name="")  # aeroplane.jpg
-explanation.save(OUTPUT_PATH, suffix_name="", postfix_name="class")  # aeroplane_class.jpg
-explanation.save(OUTPUT_PATH, prefix_name="image_name", suffix_name="")  # image_name_aeroplane.jpg
+explanation.save(OUTPUT_PATH, target_prefix="")  # aeroplane.jpg
+explanation.save(OUTPUT_PATH, target_prefix="", target_suffix="class")  # aeroplane_class.jpg
+explanation.save(OUTPUT_PATH, image_name_prefix="image_name", target_prefix="")  # image_name_aeroplane.jpg
 
 # Save saliency maps with confidence scores
-explanation.save(OUTPUT_PATH, postfix_name="conf", confidence_scores=scores_dict)  # target_aeroplane_conf_0.92.jpg```
+explanation.save(OUTPUT_PATH, target_suffix="conf", confidence_scores=scores_dict)  # target_aeroplane_conf_0.92.jpg```
 ```
 
 
