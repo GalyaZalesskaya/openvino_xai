@@ -1,6 +1,7 @@
 # Copyright (C) 2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import os
 
 import numpy as np
@@ -69,7 +70,7 @@ class TestExplanation:
         )
         return explanation
 
-    def test_plot(self, mocker, capsys):
+    def test_plot(self, mocker, caplog):
         explanation = self._get_explanation()
 
         # Invalid backend
@@ -84,10 +85,15 @@ class TestExplanation:
         explanation.plot(["aeroplane", "bird"], backend="matplotlib")
         # Plot all saliency maps
         explanation.plot(-1, backend="matplotlib")
+
         # Class index that is not in saliency maps will be ommitted with message
-        explanation.plot([0, 3], backend="matplotlib")
-        captured = capsys.readouterr()
-        assert "Provided class index 3 is not available among saliency maps." in captured.out
+        with caplog.at_level(logging.INFO):
+            explanation.plot([0, 3], backend="matplotlib")
+        assert "Provided class index 3 is not available among saliency maps." in caplog.text
+
+        # Check threshold
+        with pytest.warns(UserWarning):
+            explanation.plot([0, 2], backend="matplotlib", threshold=1)
 
         # CV backend
         mocker.patch("cv2.imshow")

@@ -10,6 +10,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
+from openvino_xai.common.utils import logger
 from openvino_xai.explainer.utils import (
     convert_targets_to_numpy,
     explains_all,
@@ -150,7 +151,9 @@ class Explanation:
             image_name = f"{save_name}_target_{target_name}.jpg" if save_name else f"target_{target_name}.jpg"
             cv2.imwrite(os.path.join(dir_path, image_name), img=map_to_save)
 
-    def plot(self, targets: np.ndarray | List[int | str] | None = None, backend="matplotlib") -> None:
+    def plot(
+        self, targets: np.ndarray | List[int | str] | None = None, backend="matplotlib", threshold: int = 24
+    ) -> None:
         """
         Plots saliency maps using the specified backend.
 
@@ -163,6 +166,7 @@ class Explanation:
                 By default, it's None, and all available saliency maps are plotted.
             backend (str): The plotting backend to use. Can be either 'matplotlib' (recommended for Jupyter)
                 or 'cv' (recommended for Python scripts). Default is 'matplotlib'.
+            threshold (int): Max number of images to plot. 50 by default to avoid memory issues.
         """
 
         if targets is None or explains_all(targets):
@@ -174,7 +178,14 @@ class Explanation:
                 if target_index in self.saliency_map:
                     checked_targets.append(target_index)
                 else:
-                    print(f"Provided class index {target_index} is not available among saliency maps.")
+                    logger.info(f"Provided class index {target_index} is not available among saliency maps.")
+
+        if len(checked_targets) > threshold:
+            logger.warning(
+                f"Decrease the number of plotted saliency maps from {len(checked_targets)} to {threshold}"
+                " to avoid the memory issue. To avoid this, increase the 'threshold' argument."
+            )
+            checked_targets = checked_targets[:threshold]
 
         if backend == "matplotlib":
             self._plot_matplotlib(checked_targets)
@@ -185,14 +196,13 @@ class Explanation:
 
     def _plot_matplotlib(self, checked_targets: list[int | str]) -> None:
         """Plots saliency maps using matplotlib."""
-        if len(checked_targets) <= 4:  # Horizontal layout
-            _, axes = plt.subplots(1, len(checked_targets), figsize=(10, 10 * len(checked_targets)))
-        else:  # Vertical layout
-            _, axes = plt.subplots(len(checked_targets), 1, figsize=(10 * len(checked_targets), 10))
-        axes = [axes] if len(checked_targets) == 1 else axes
+        num_cols = 4
+        num_rows = int(np.ceil(len(checked_targets) / num_cols))
+        _, axes = plt.subplots(num_rows, num_cols, figsize=(5 * num_cols, 6 * num_rows))
+        axes = axes.flatten()
 
         for i, target_index in enumerate(checked_targets):
-            if self.label_names and not isinstance(target_index, str):
+            if self.label_names and isinstance(target_index, np.int64):
                 label_name = f"{self.label_names[target_index]} ({target_index})"
             else:
                 label_name = str(target_index)
@@ -203,13 +213,17 @@ class Explanation:
             axes[i].axis("off")  # Hide the axis
             axes[i].set_title(f"Class {label_name}")
 
+        # Hide remaining axes
+        for ax in axes[len(checked_targets) :]:
+            ax.set_visible(False)
+
         plt.tight_layout()
         plt.show()
 
     def _plot_cv(self, checked_targets: list[int | str]) -> None:
         """Plots saliency maps using OpenCV."""
         for target_index in checked_targets:
-            if self.label_names and not isinstance(target_index, str):
+            if self.label_names and isinstance(target_index, np.int64):
                 label_name = f"{self.label_names[target_index]} ({target_index})"
             else:
                 label_name = str(target_index)
