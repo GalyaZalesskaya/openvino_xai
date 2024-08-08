@@ -166,33 +166,38 @@ class Explanation:
         """
 
         if targets is None or explains_all(targets):
-            class_indices = self.targets
+            checked_targets = self.targets
         else:
             target_indices = get_target_indices(targets, self.label_names)
-            class_indices = [cls_idx for cls_idx in target_indices if cls_idx in self.targets]
+            checked_targets = []
+            for target_index in target_indices:
+                if target_index in self.saliency_map:
+                    checked_targets.append(target_index)
+                else:
+                    print(f"Provided class index {target_index} is not available among saliency maps.")
 
         if backend == "matplotlib":
-            self._plot_matplotlib(class_indices)
+            self._plot_matplotlib(checked_targets)
         elif backend == "cv":
-            self._plot_cv(class_indices)
+            self._plot_cv(checked_targets)
         else:
             raise ValueError(f"Unknown backend {backend}. Use 'matplotlib' or 'cv'.")
 
-    def _plot_matplotlib(self, class_indices: list[int | str]) -> None:
+    def _plot_matplotlib(self, checked_targets: list[int | str]) -> None:
         """Plots saliency maps using matplotlib."""
-        if len(class_indices) <= 4:  # Horizontal layout
-            _, axes = plt.subplots(len(class_indices), 1)
+        if len(checked_targets) <= 4:  # Horizontal layout
+            _, axes = plt.subplots(1, len(checked_targets), figsize=(10, 10 * len(checked_targets)))
         else:  # Vertical layout
-            _, axes = plt.subplots(1, len(class_indices))
-        axes = [axes] if len(class_indices) == 1 else axes
+            _, axes = plt.subplots(len(checked_targets), 1, figsize=(10 * len(checked_targets), 10))
+        axes = [axes] if len(checked_targets) == 1 else axes
 
-        for i, cls_idx in enumerate(class_indices):
-            if self.label_names and isinstance(cls_idx, int):
-                label_name = f"{self.label_names[cls_idx]} ({cls_idx})"
+        for i, target_index in enumerate(checked_targets):
+            if self.label_names and not isinstance(target_index, str):
+                label_name = f"{self.label_names[target_index]} ({target_index})"
             else:
-                label_name = str(cls_idx)
+                label_name = str(target_index)
 
-            map_to_plot = self.saliency_map[cls_idx]
+            map_to_plot = self.saliency_map[target_index]
 
             axes[i].imshow(map_to_plot)
             axes[i].axis("off")  # Hide the axis
@@ -201,19 +206,19 @@ class Explanation:
         plt.tight_layout()
         plt.show()
 
-    def _plot_cv(self, class_indices: list[int | str], wait_time: int = 0) -> None:
+    def _plot_cv(self, checked_targets: list[int | str]) -> None:
         """Plots saliency maps using OpenCV."""
-        for cls_idx in class_indices:
-            if self.label_names and isinstance(cls_idx, int):
-                label_name = f"{self.label_names[cls_idx]} ({cls_idx})"
+        for target_index in checked_targets:
+            if self.label_names and not isinstance(target_index, str):
+                label_name = f"{self.label_names[target_index]} ({target_index})"
             else:
-                label_name = str(cls_idx)
+                label_name = str(target_index)
 
-            map_to_plot = self.saliency_map[cls_idx]
+            map_to_plot = self.saliency_map[target_index]
             map_to_plot = cv2.cvtColor(map_to_plot, cv2.COLOR_BGR2RGB)
 
             cv2.imshow(f"Class {label_name}", map_to_plot)
-            cv2.waitKey(wait_time)
+            cv2.waitKey(0)
         cv2.destroyAllWindows()
 
 

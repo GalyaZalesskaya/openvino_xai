@@ -69,7 +69,7 @@ class TestExplanation:
         )
         return explanation
 
-    def test_plot(self):
+    def test_plot(self, mocker, capsys):
         explanation = self._get_explanation()
 
         # Invalid backend
@@ -84,11 +84,15 @@ class TestExplanation:
         explanation.plot(["aeroplane", "bird"], backend="matplotlib")
         # Plot all saliency maps
         explanation.plot(-1, backend="matplotlib")
-        # Class index that is not in saliency maps will be ommitted
-        explanation.plot([0, 3])
+        # Class index that is not in saliency maps will be ommitted with message
+        explanation.plot([0, 3], backend="matplotlib")
+        captured = capsys.readouterr()
+        assert "Provided class index 3 is not available among saliency maps." in captured.out
 
-        # # CV backend
-        # explanation._plot_cv([0, 2], wait_time=1)
+        # CV backend
+        mocker.patch("cv2.imshow")
+        mocker.patch("cv2.waitKey")
+        explanation.plot([0, 2], backend="cv")
 
         # Plot activation map
         explanation = self._get_explanation(saliency_maps=SALIENCY_MAPS_IMAGE, label_names=None)
