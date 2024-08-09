@@ -333,7 +333,11 @@ model_xai = xai.insert_xai(
 
 ## Plot saliency maps
 
-To visualize saliency maps, use the `explanation.plot` function. The `matplotlib` backend is more convenient for plotting saliency maps in Jupyter notebooks, as it uses the Matplotlib library. The `cv` backend is better for visualization in Python scripts, as it opens extra windows to display the generated saliency maps.
+To visualize saliency maps, use the `explanation.plot` function.
+
+The `matplotlib` backend is more convenient for plotting saliency maps in Jupyter notebooks, as it uses the Matplotlib library. By default it generates the grid with 4 images per row (can be agjusted by `num_collumns` parameter).
+
+The `cv` backend is better for visualization in Python scripts, as it opens extra windows to display the generated saliency maps.
 
 ```python
 import cv2
@@ -378,6 +382,8 @@ explanation = explainer(
 explanation.plot() # plot all saliency map
 explanation.plot(targets=[7], backend="matplotlib")
 explanation.plot(targets=["cat"], backend="matplotlib")
+# Plots a grid with 5 images per row
+explanation.plot(num_columns=5, backend="matplotlib")
 
 # Use OpenCV (recommended for Python) - will open new windows with saliency maps
 explanation.plot(backend="cv") # plot all saliency map

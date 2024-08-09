@@ -152,13 +152,17 @@ class Explanation:
             cv2.imwrite(os.path.join(dir_path, image_name), img=map_to_save)
 
     def plot(
-        self, targets: np.ndarray | List[int | str] | None = None, backend="matplotlib", threshold: int = 24
+        self,
+        targets: np.ndarray | List[int | str] | None = None,
+        backend: str = "matplotlib",
+        max_num_plots: int = 24,
+        num_columns: int = 4,
     ) -> None:
         """
         Plots saliency maps using the specified backend.
 
-        This function plots available saliency maps using the specified backend. Additionally, target classes
-        can be specified by passing a list or array of target class indices or names. If a provided class is
+        This function plots available saliency maps using the specified backend. Targets to plot
+        can be specified by passing a list of target class indices or names. If a provided class is
         not available among the saliency maps, it is omitted.
 
         Args:
@@ -166,7 +170,8 @@ class Explanation:
                 By default, it's None, and all available saliency maps are plotted.
             backend (str): The plotting backend to use. Can be either 'matplotlib' (recommended for Jupyter)
                 or 'cv' (recommended for Python scripts). Default is 'matplotlib'.
-            threshold (int): Max number of images to plot. 50 by default to avoid memory issues.
+            max_num_plots (int): Max number of images to plot. Default is 24 to avoid memory issues.
+            num_columns (int): Number of columns in the saliency maps visualization grid for the matplotlib backend.
         """
 
         if targets is None or explains_all(targets):
@@ -180,23 +185,22 @@ class Explanation:
                 else:
                     logger.info(f"Provided class index {target_index} is not available among saliency maps.")
 
-        if len(checked_targets) > threshold:
+        if len(checked_targets) > max_num_plots:
             logger.warning(
-                f"Decrease the number of plotted saliency maps from {len(checked_targets)} to {threshold}"
-                " to avoid the memory issue. To avoid this, increase the 'threshold' argument."
+                f"Decrease the number of plotted saliency maps from {len(checked_targets)} to {max_num_plots}"
+                " to avoid the memory issue. To avoid this, increase the 'max_num_plots' argument."
             )
-            checked_targets = checked_targets[:threshold]
+            checked_targets = checked_targets[:max_num_plots]
 
         if backend == "matplotlib":
-            self._plot_matplotlib(checked_targets)
+            self._plot_matplotlib(checked_targets, num_columns)
         elif backend == "cv":
             self._plot_cv(checked_targets)
         else:
             raise ValueError(f"Unknown backend {backend}. Use 'matplotlib' or 'cv'.")
 
-    def _plot_matplotlib(self, checked_targets: list[int | str]) -> None:
+    def _plot_matplotlib(self, checked_targets: list[int | str], num_cols: int) -> None:
         """Plots saliency maps using matplotlib."""
-        num_cols = 4
         num_rows = int(np.ceil(len(checked_targets) / num_cols))
         _, axes = plt.subplots(num_rows, num_cols, figsize=(5 * num_cols, 6 * num_rows))
         axes = axes.flatten()

@@ -85,6 +85,8 @@ class TestExplanation:
         explanation.plot(["aeroplane", "bird"], backend="matplotlib")
         # Plot all saliency maps
         explanation.plot(-1, backend="matplotlib")
+        # Update the num columns for the matplotlib visualization grid
+        explanation.plot(backend="matplotlib", num_columns=1)
 
         # Class index that is not in saliency maps will be ommitted with message
         with caplog.at_level(logging.INFO):
@@ -92,8 +94,8 @@ class TestExplanation:
         assert "Provided class index 3 is not available among saliency maps." in caplog.text
 
         # Check threshold
-        with pytest.warns(UserWarning):
-            explanation.plot([0, 2], backend="matplotlib", threshold=1)
+        with caplog.at_level(logging.WARNING):
+            explanation.plot([0, 2], backend="matplotlib", max_num_plots=1)
 
         # CV backend
         mocker.patch("cv2.imshow")
