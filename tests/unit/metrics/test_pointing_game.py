@@ -1,12 +1,11 @@
-import unittest
-from typing import List, Tuple
-
 import numpy as np
+import pytest
 
 from openvino_xai.metrics.pointing_game import PointingGame
 
 
-class TestPointingGame(unittest.TestCase):
+class TestPointingGame:
+    @pytest.fixture(autouse=True)
     def setUp(self):
         self.pointing_game = PointingGame()
 
