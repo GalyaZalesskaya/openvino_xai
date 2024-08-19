@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+from typing import Dict, List, Tuple
 
 import cv2
 import openvino as ov
@@ -15,33 +16,50 @@ from openvino_xai.metrics.pointing_game import PointingGame
 from tests.unit.explanation.test_explanation_utils import VOC_NAMES
 
 MODEL_NAME = "mlc_mobilenetv3_large_voc"
+IMAGE_PATH = "tests/assets/cheetah_person.jpg"
+COCO_ANN_PATH = "tests/assets/cheetah_person_coco.json"
 
 
-def load_gt_bboxes(class_name="person"):
-    with open("tests/assets/cheetah_person_coco.json", "r") as f:
+def load_gt_bboxes(json_coco_path: str) -> List[Dict[str, List[Tuple[int, int, int, int]]]]:
+    """
+    Loads ground truth bounding boxes from a COCO format JSON file.
+
+    Returns a list of dictionaries, where each dictionary corresponds to an image.
+    The key is the label name and the value is a list of bounding boxes for certain image.
+    """
+
+    with open(json_coco_path, "r") as f:
         coco_anns = json.load(f)
 
-    category_id = [category["id"] for category in coco_anns["categories"] if category["name"] == class_name]
-    category_id = category_id[0]
+    result = {}
+    category_id_to_name = {category["id"]: category["name"] for category in coco_anns["categories"]}
 
-    category_gt_bboxes = [
-        annotation["bbox"] for annotation in coco_anns["annotations"] if annotation["category_id"] == category_id
-    ]
-    return category_gt_bboxes
+    for annotation in coco_anns["annotations"]:
+        image_id = annotation["image_id"]
+        category_id = annotation["category_id"]
+        bbox = annotation["bbox"]
+
+        category_name = category_id_to_name[category_id]
+        if image_id not in result:
+            result[image_id] = {}
+        if category_name not in result[image_id]:
+            result[image_id][category_name] = []
+
+        result[image_id][category_name].append(bbox)
+
+    return list(result.values())
 
 
 class TestDummyRegression:
-    image = cv2.imread("tests/assets/cheetah_person.jpg")
+    image = cv2.imread(IMAGE_PATH)
+    gt_bboxes = load_gt_bboxes(COCO_ANN_PATH)
+    pointing_game = PointingGame()
 
     preprocess_fn = get_preprocess_fn(
         change_channel_order=True,
         input_size=(224, 224),
         hwc_to_chw=True,
     )
-
-    gt_bboxes = load_gt_bboxes()
-    pointing_game = PointingGame()
-    steps = 10
 
     @pytest.fixture(autouse=True)
     def setup(self, fxt_data_root):
@@ -65,17 +83,23 @@ class TestDummyRegression:
             colormap=False,
         )
         assert len(explanation.saliency_map) == 1
+        score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
+        assert score == 1.0
 
-        # For now, assume that there's only one class
-        # TODO: support multiple classes
-        saliency_maps = list(explanation.saliency_map.values())
-        score = self.pointing_game.evaluate(saliency_maps, self.gt_bboxes)
-        assert score > 0.5
+        explanation = self.explainer(
+            self.image,
+            targets=["cat"],
+            label_names=VOC_NAMES,
+            colormap=False,
+        )
+        assert len(explanation.saliency_map) == 1
+        score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
+        # No gt box for "cat" class
+        assert score == 0.0
 
     def test_explainer_images(self):
-        # TODO support multiple classes
         images = [self.image, self.image]
-        saliency_maps = []
+        explanations = []
         for image in images:
             explanation = self.explainer(
                 image,
@@ -83,8 +107,8 @@ class TestDummyRegression:
                 label_names=VOC_NAMES,
                 colormap=False,
             )
-            saliency_map = list(explanation.saliency_map.values())[0]
-            saliency_maps.append(saliency_map)
+            explanations.append(explanation)
+        dataset_gt_bboxes = self.gt_bboxes * 2
 
-        score = self.pointing_game.evaluate(saliency_maps, self.gt_bboxes * 2)
-        assert score > 0.5
+        score = self.pointing_game.evaluate(explanations, dataset_gt_bboxes)
+        assert score == 1.0
