@@ -13,6 +13,7 @@ from openvino_xai.common.utils import retrieve_otx_model
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
 from openvino_xai.explainer.utils import get_postprocess_fn, get_preprocess_fn, sigmoid
 from openvino_xai.methods.black_box.base import Preset
+from openvino_xai.metrics.adcc import ADCC
 from openvino_xai.metrics.insertion_deletion_auc import InsertionDeletionAUC
 from openvino_xai.metrics.pointing_game import PointingGame
 from tests.unit.explanation.test_explanation_utils import VOC_NAMES
@@ -21,8 +22,6 @@ MODEL_NAME = "mlc_mobilenetv3_large_voc"
 
 
 def postprocess_fn(x: Mapping):
-    # Implementing own post-process function based on model's implementation
-    # Return "logits" model output
     x = sigmoid(x)
     return x[0]
 
@@ -40,6 +39,11 @@ def load_gt_bboxes(class_name="person"):
     return category_gt_bboxes
 
 
+def postprocess_fn(x: Mapping):
+    x = sigmoid(x)
+    return x[0]
+
+
 class TestDummyRegression:
     image = cv2.imread("tests/assets/cheetah_person.jpg")
 
@@ -48,6 +52,7 @@ class TestDummyRegression:
         input_size=(224, 224),
         hwc_to_chw=True,
     )
+
     gt_bboxes = load_gt_bboxes()
     pointing_game = PointingGame()
     steps = 10
@@ -60,7 +65,9 @@ class TestDummyRegression:
         core = ov.Core()
         model = core.read_model(model_path)
         compiled_model = core.compile_model(model=model, device_name="AUTO")
+
         self.auc = InsertionDeletionAUC(compiled_model, self.preprocess_fn, postprocess_fn)
+        self.adcc = ADCC(model, compiled_model, self.preprocess_fn, postprocess_fn)
 
         self.explainer = Explainer(
             model=model,
@@ -74,7 +81,6 @@ class TestDummyRegression:
             self.image,
             targets=["person"],
             label_names=VOC_NAMES,
-            preset=Preset.SPEED,
             colormap=False,
         )
         assert len(explanation.saliency_map) == 1
@@ -91,6 +97,10 @@ class TestDummyRegression:
         deletion_auc_score = self.auc.deletion_auc_image(self.image, saliency_maps[0], self.steps)
         assert deletion_auc_score >= 0.2
 
+        adcc_score = self.adcc.adcc(self.image, saliency_maps[0])
+        # Why metric for real image and detector is worse then for a random image?
+        assert adcc_score >= 0.1
+
     def test_explainer_images(self):
         # TODO support multiple classes
         images = [self.image, self.image]
@@ -100,7 +110,6 @@ class TestDummyRegression:
                 image,
                 targets=["person"],
                 label_names=VOC_NAMES,
-                preset=Preset.SPEED,
                 colormap=False,
             )
             saliency_map = list(explanation.saliency_map.values())[0]

@@ -1,8 +1,7 @@
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
-# from sklearn.metrics import auc
-import cv2
+
 
 def auc(arr):
     """Returns normalized Area Under Curve of the array."""
@@ -10,18 +9,16 @@ def auc(arr):
 
 
 class InsertionDeletionAUC:
-
     def __init__(self, compiled_model, preprocess_fn, postprocess_fn):
         self.preprocess_fn = preprocess_fn
         self.postprocess_fn = postprocess_fn
         self.compiled_model = compiled_model
 
-    def predict(self, input) -> int:
+    def predict(self, input) -> Tuple[np.ndarray, int]:
         logits = self.compiled_model([self.preprocess_fn(input)])[0]
         logits = self.postprocess_fn(logits)
         predicted_class = np.argmax(logits)
         return logits, predicted_class
-
 
     def insertion_auc_image(self, input_image, saliency_map, steps=100, baseline_value=0):
         """
@@ -47,18 +44,19 @@ class InsertionDeletionAUC:
         for i in range(steps + 1):
             temp_image = baseline.copy()
             num_pixels_to_insert = int(i * len(sorted_indices[0]) / steps)
-            temp_image[sorted_indices[0][:num_pixels_to_insert], sorted_indices[1][:num_pixels_to_insert]] = input_image[sorted_indices[0][:num_pixels_to_insert], sorted_indices[1][:num_pixels_to_insert]]
+            temp_image[
+                sorted_indices[0][:num_pixels_to_insert], sorted_indices[1][:num_pixels_to_insert]
+            ] = input_image[sorted_indices[0][:num_pixels_to_insert], sorted_indices[1][:num_pixels_to_insert]]
 
             # Predict and record the score
             # cv2.imshow("temp_image", temp_image)
-            temp_logits, _  = self.predict(temp_image)  # Model expects batch dimension
+            temp_logits, _ = self.predict(temp_image)  # Model expects batch dimension
             scores.append(temp_logits[pred_class])
         #     cv2.waitKey(0)
         # cv2.destroyAllWindows()
 
         insertion_auc_score = auc(np.array(scores))
         return insertion_auc_score
-
 
     def deletion_auc_image(self, input_image, saliency_map, steps=100):
         """
@@ -82,11 +80,13 @@ class InsertionDeletionAUC:
         for i in range(steps + 1):
             temp_image = input_image.copy()
             num_pixels_to_delete = int(i * len(sorted_indices[0]) / steps)
-            temp_image[sorted_indices[0][:num_pixels_to_delete], sorted_indices[1][:num_pixels_to_delete]] = 0  # Remove important pixels
+            temp_image[
+                sorted_indices[0][:num_pixels_to_delete], sorted_indices[1][:num_pixels_to_delete]
+            ] = 0  # Remove important pixels
 
             # Predict and record the score
             # cv2.imshow("temp_image", temp_image)
-            temp_logits, _  = self.predict(temp_image)  # Model expects batch dimension
+            temp_logits, _ = self.predict(temp_image)  # Model expects batch dimension
             scores.append(temp_logits[pred_class])
         #     cv2.waitKey(0)
         # cv2.destroyAllWindows()
@@ -97,12 +97,12 @@ class InsertionDeletionAUC:
     def evaluate(self, input_images, saliency_maps, steps):
         insertions, deletions = [], []
         for input_image, saliency_map in zip(input_images, saliency_maps):
-            insertion = self.insertion_auc_image(input_image, saliency_map,steps)
+            insertion = self.insertion_auc_image(input_image, saliency_map, steps)
             deletion = self.deletion_auc_image(input_image, saliency_map, steps)
 
             insertions.append(insertion)
             deletions.append(deletion)
-        
+
         insertion = np.mean(np.array(insertions))
         deletion = np.mean(np.array(deletion))
         delta = insertion - deletion
