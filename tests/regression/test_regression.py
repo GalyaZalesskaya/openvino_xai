@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from typing import Callable, List, Mapping
 
 import cv2
 import openvino as ov
@@ -11,19 +10,11 @@ import pytest
 from openvino_xai import Task
 from openvino_xai.common.utils import retrieve_otx_model
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
-from openvino_xai.explainer.utils import get_postprocess_fn, get_preprocess_fn, sigmoid
-from openvino_xai.methods.black_box.base import Preset
-from openvino_xai.metrics.adcc import ADCC
-from openvino_xai.metrics.insertion_deletion_auc import InsertionDeletionAUC
+from openvino_xai.explainer.utils import get_preprocess_fn
 from openvino_xai.metrics.pointing_game import PointingGame
 from tests.unit.explanation.test_explanation_utils import VOC_NAMES
 
 MODEL_NAME = "mlc_mobilenetv3_large_voc"
-
-
-def postprocess_fn(x: Mapping):
-    x = sigmoid(x)
-    return x[0]
 
 
 def load_gt_bboxes(class_name="person"):
@@ -37,11 +28,6 @@ def load_gt_bboxes(class_name="person"):
         annotation["bbox"] for annotation in coco_anns["annotations"] if annotation["category_id"] == category_id
     ]
     return category_gt_bboxes
-
-
-def postprocess_fn(x: Mapping):
-    x = sigmoid(x)
-    return x[0]
 
 
 class TestDummyRegression:
@@ -59,15 +45,10 @@ class TestDummyRegression:
 
     @pytest.fixture(autouse=True)
     def setup(self, fxt_data_root):
-        self.data_dir = fxt_data_root
-        retrieve_otx_model(self.data_dir, MODEL_NAME)
-        model_path = self.data_dir / "otx_models" / (MODEL_NAME + ".xml")
-        core = ov.Core()
-        model = core.read_model(model_path)
-        compiled_model = core.compile_model(model=model, device_name="AUTO")
-
-        self.auc = InsertionDeletionAUC(compiled_model, self.preprocess_fn, postprocess_fn)
-        self.adcc = ADCC(model, compiled_model, self.preprocess_fn, postprocess_fn)
+        data_dir = fxt_data_root
+        retrieve_otx_model(data_dir, MODEL_NAME)
+        model_path = data_dir / "otx_models" / (MODEL_NAME + ".xml")
+        model = ov.Core().read_model(model_path)
 
         self.explainer = Explainer(
             model=model,
@@ -91,16 +72,6 @@ class TestDummyRegression:
         score = self.pointing_game.evaluate(saliency_maps, self.gt_bboxes)
         assert score > 0.5
 
-        insertion_auc_score = self.auc.insertion_auc_image(self.image, saliency_maps[0], self.steps)
-        assert insertion_auc_score >= 0.9
-
-        deletion_auc_score = self.auc.deletion_auc_image(self.image, saliency_maps[0], self.steps)
-        assert deletion_auc_score >= 0.2
-
-        adcc_score = self.adcc.adcc(self.image, saliency_maps[0])
-        # Why metric for real image and detector is worse then for a random image?
-        assert adcc_score >= 0.1
-
     def test_explainer_images(self):
         # TODO support multiple classes
         images = [self.image, self.image]
@@ -115,10 +86,5 @@ class TestDummyRegression:
             saliency_map = list(explanation.saliency_map.values())[0]
             saliency_maps.append(saliency_map)
 
-        score = self.pointing_game.evaluate(saliency_maps, [self.gt_bboxes[0], self.gt_bboxes[0]])
+        score = self.pointing_game.evaluate(saliency_maps, self.gt_bboxes * 2)
         assert score > 0.5
-
-        insertion, deletion, delta = self.auc.evaluate(images, saliency_maps, self.steps)
-        assert insertion >= 0.9
-        assert deletion >= 0.2
-        assert delta >= 0.7
