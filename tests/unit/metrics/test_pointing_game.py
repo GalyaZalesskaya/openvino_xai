@@ -27,7 +27,9 @@ class TestPointingGame:
     def test_pointing_game_evaluate(self, caplog):
         pointing_game = PointingGame()
         explanation = Explanation(
-            label_names=["cat", "dog"], saliency_map={0: [[0, 1], [2, 3]], 1: [[0, 0], [0, 1]]}, targets=[0, 1]
+            label_names=["cat", "dog"],
+            targets=[0, 1],
+            saliency_map={0: [[0, 1], [2, 3]], 1: [[0, 0], [0, 1]]},
         )
         explanations = [explanation]
 
@@ -54,7 +56,9 @@ class TestPointingGame:
 
         # No label names
         explanation = Explanation(
-            label_names=None, saliency_map={0: [[0, 1], [2, 3]], 1: [[0, 0], [0, 1]]}, targets=[0, 1]
+            label_names=None,
+            targets=[0, 1],
+            saliency_map={0: [[0, 1], [2, 3]], 1: [[0, 0], [0, 1]]},
         )
         explanations = [explanation]
         gt_bboxes = [{"cat": [(0, 0, 2, 2)], "dog": [(0, 0, 1, 1)]}]
