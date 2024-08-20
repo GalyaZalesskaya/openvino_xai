@@ -84,8 +84,6 @@ def preprocess_fn(
     # Resize
     if input_size:
         x = cv2.resize(src=x, dsize=input_size)
-        if x.ndim == 2:
-            x = np.expand_dims(x, 2)
 
     # Normalize
     x = (x - mean) / std
