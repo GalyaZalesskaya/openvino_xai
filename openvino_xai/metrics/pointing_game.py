@@ -10,6 +10,24 @@ from openvino_xai.explainer.explanation import Explanation
 
 
 class PointingGame:
+    """
+    Implementation of the Pointing Game by Zhang et al., 2018.
+
+    Unlike the original approach that uses ground truth bounding masks, this implementation uses ground
+    truth bounding boxes. The Pointing Game checks whether the most salient point is within the annotated
+    object. High scores mean that the most salient pixel belongs to an object of the specified class.
+
+    References:
+        1) Reference implementation:
+           https://github.com/understandable-machine-intelligence-lab/Quantus/
+           Hedström, Anna, et al.:
+           "Quantus: An explainable ai toolkit for responsible evaluation of neural network explanations and beyond."
+           Journal of Machine Learning Research 24.34 (2023): 1-11.
+        2) Jianming Zhang et al.:
+           "Top-Down Neural Attention by Excitation Backprop." International Journal of Computer Vision
+           (2018) 126:1084-1102.
+    """
+
     @staticmethod
     def pointing_game(saliency_map: np.ndarray, image_gt_bboxes: List[Tuple[int, int, int, int]]) -> bool:
         """
@@ -24,6 +42,7 @@ class PointingGame:
         :return: True if any of the most salient points fall within any of the ground truth bounding boxes, False otherwise.
         :rtype: bool
         """
+        # TODO: Optimize calculation by generating a mask from annotation and finding the intersection
         # Find the most salient points in the saliency map
         max_indices = np.argwhere(saliency_map == np.max(saliency_map))
 

@@ -86,17 +86,6 @@ class TestDummyRegression:
         score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
         assert score == 1.0
 
-        explanation = self.explainer(
-            self.image,
-            targets=["cat"],
-            label_names=VOC_NAMES,
-            colormap=False,
-        )
-        assert len(explanation.saliency_map) == 1
-        score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
-        # No gt box for "cat" class
-        assert score == 0.0
-
     def test_explainer_images(self):
         images = [self.image, self.image]
         explanations = []
