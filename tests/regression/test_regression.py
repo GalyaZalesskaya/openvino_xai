@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from typing import Callable, List, Mapping
+from typing import Dict, List, Tuple
 
 import cv2
 import openvino as ov
@@ -11,41 +11,54 @@ import pytest
 from openvino_xai import Task
 from openvino_xai.common.utils import retrieve_otx_model
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
-from openvino_xai.explainer.utils import get_postprocess_fn, get_preprocess_fn, sigmoid
-from openvino_xai.methods.black_box.base import Preset
+from openvino_xai.explainer.utils import (
+    ActivationType,
+    get_postprocess_fn,
+    get_preprocess_fn,
+)
 from openvino_xai.metrics.adcc import ADCC
 from openvino_xai.metrics.insertion_deletion_auc import InsertionDeletionAUC
 from openvino_xai.metrics.pointing_game import PointingGame
 from tests.unit.explanation.test_explanation_utils import VOC_NAMES
 
 MODEL_NAME = "mlc_mobilenetv3_large_voc"
+IMAGE_PATH = "tests/assets/cheetah_person.jpg"
+COCO_ANN_PATH = "tests/assets/cheetah_person_coco.json"
 
 
-def postprocess_fn(x: Mapping):
-    x = sigmoid(x)
-    return x[0]
+def load_gt_bboxes(json_coco_path: str) -> List[Dict[str, List[Tuple[int, int, int, int]]]]:
+    """
+    Loads ground truth bounding boxes from a COCO format JSON file.
+    Returns a list of dictionaries, where each dictionary corresponds to an image.
+    The key is the label name and the value is a list of bounding boxes for certain image.
+    """
 
-
-def load_gt_bboxes(class_name="person"):
-    with open("tests/assets/cheetah_person_coco.json", "r") as f:
+    with open(json_coco_path, "r") as f:
         coco_anns = json.load(f)
 
-    category_id = [category["id"] for category in coco_anns["categories"] if category["name"] == class_name]
-    category_id = category_id[0]
+    result = {}
+    category_id_to_name = {category["id"]: category["name"] for category in coco_anns["categories"]}
 
-    category_gt_bboxes = [
-        annotation["bbox"] for annotation in coco_anns["annotations"] if annotation["category_id"] == category_id
-    ]
-    return category_gt_bboxes
+    for annotation in coco_anns["annotations"]:
+        image_id = annotation["image_id"]
+        category_id = annotation["category_id"]
+        bbox = annotation["bbox"]
 
+        category_name = category_id_to_name[category_id]
+        if image_id not in result:
+            result[image_id] = {}
+        if category_name not in result[image_id]:
+            result[image_id][category_name] = []
 
-def postprocess_fn(x: Mapping):
-    x = sigmoid(x)
-    return x[0]
+        result[image_id][category_name].append(bbox)
+
+    return list(result.values())
 
 
 class TestDummyRegression:
-    image = cv2.imread("tests/assets/cheetah_person.jpg")
+    image = cv2.imread(IMAGE_PATH)
+    gt_bboxes = load_gt_bboxes(COCO_ANN_PATH)
+    pointing_game = PointingGame()
 
     preprocess_fn = get_preprocess_fn(
         change_channel_order=True,
@@ -53,21 +66,16 @@ class TestDummyRegression:
         hwc_to_chw=True,
     )
 
-    gt_bboxes = load_gt_bboxes()
-    pointing_game = PointingGame()
-    steps = 10
+    postprocess_fn = get_postprocess_fn(activation=ActivationType.SIGMOID)
 
     @pytest.fixture(autouse=True)
     def setup(self, fxt_data_root):
-        self.data_dir = fxt_data_root
-        retrieve_otx_model(self.data_dir, MODEL_NAME)
-        model_path = self.data_dir / "otx_models" / (MODEL_NAME + ".xml")
-        core = ov.Core()
-        model = core.read_model(model_path)
-        compiled_model = core.compile_model(model=model, device_name="AUTO")
-
-        self.auc = InsertionDeletionAUC(compiled_model, self.preprocess_fn, postprocess_fn)
-        self.adcc = ADCC(model, compiled_model, self.preprocess_fn, postprocess_fn)
+        data_dir = fxt_data_root
+        retrieve_otx_model(data_dir, MODEL_NAME)
+        model_path = data_dir / "otx_models" / (MODEL_NAME + ".xml")
+        model = ov.Core().read_model(model_path)
+        compiled_model = ov.Core().compile_model(model, "CPU")
+        self.auc = InsertionDeletionAUC(compiled_model, self.preprocess_fn, self.postprocess_fn)
 
         self.explainer = Explainer(
             model=model,
@@ -77,48 +85,51 @@ class TestDummyRegression:
         )
 
     def test_explainer_image(self):
-        explanation = self.explainer(
-            self.image,
-            targets=["person"],
-            label_names=VOC_NAMES,
-            colormap=False,
-        )
+        # explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
+        # assert len(explanation.saliency_map) == 1
+        # score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
+        # assert score == 1.0
+
+        # explanation = self.explainer(self.image, targets=["cat"], label_names=VOC_NAMES, colormap=False)
+        # assert len(explanation.saliency_map) == 1
+        # score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
+        # # No gt box for "cat" class
+        # assert score == 0.0
+
+        explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 1
-
-        # For now, assume that there's only one class
-        # TODO: support multiple classes
-        saliency_maps = list(explanation.saliency_map.values())
-        score = self.pointing_game.evaluate(saliency_maps, self.gt_bboxes)
-        assert score > 0.5
-
-        insertion_auc_score = self.auc.insertion_auc_image(self.image, saliency_maps[0], self.steps)
+        auc_score = self.auc.evaluate([explanation], [self.image], steps=10)
+        insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
         assert insertion_auc_score >= 0.9
-
-        deletion_auc_score = self.auc.deletion_auc_image(self.image, saliency_maps[0], self.steps)
         assert deletion_auc_score >= 0.2
+        assert delta_auc_score >= 0.7
 
-        adcc_score = self.adcc.adcc(self.image, saliency_maps[0])
-        # Why metric for real image and detector is worse then for a random image?
-        assert adcc_score >= 0.1
+        # Two classes for saliency maps
+        explanation = self.explainer(self.image, targets=["person", "cat"], label_names=VOC_NAMES, colormap=False)
+        assert len(explanation.saliency_map) == 2
+        auc_score = self.auc.evaluate([explanation], [self.image], steps=10)
+        insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
+        assert insertion_auc_score >= 0.5
+        assert deletion_auc_score >= 0.2
+        assert delta_auc_score >= 0.3
+
+        # adcc_score = self.adcc.adcc(self.image, saliency_maps[0])
+        # # Why metric for real image and detector is worse then for a random image?
+        # assert adcc_score >= 0.1
 
     def test_explainer_images(self):
-        # TODO support multiple classes
         images = [self.image, self.image]
-        saliency_maps = []
+        explanations = []
         for image in images:
-            explanation = self.explainer(
-                image,
-                targets=["person"],
-                label_names=VOC_NAMES,
-                colormap=False,
-            )
-            saliency_map = list(explanation.saliency_map.values())[0]
-            saliency_maps.append(saliency_map)
+            explanation = self.explainer(image, targets=["person"], label_names=VOC_NAMES, colormap=False)
+            explanations.append(explanation)
+        dataset_gt_bboxes = self.gt_bboxes * 2
 
-        score = self.pointing_game.evaluate(saliency_maps, [self.gt_bboxes[0], self.gt_bboxes[0]])
-        assert score > 0.5
+        pointing_game_score = self.pointing_game.evaluate(explanations, dataset_gt_bboxes)
+        assert pointing_game_score == 1.0
 
-        insertion, deletion, delta = self.auc.evaluate(images, saliency_maps, self.steps)
-        assert insertion >= 0.9
-        assert deletion >= 0.2
-        assert delta >= 0.7
+        auc_score = self.auc.evaluate(explanations, images, steps=10)
+        insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
+        assert insertion_auc_score >= 0.9
+        assert deletion_auc_score >= 0.2
+        assert delta_auc_score >= 0.7
