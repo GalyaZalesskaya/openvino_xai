@@ -85,16 +85,10 @@ class TestDummyRegression:
         )
 
     def test_explainer_image(self):
-        # explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
-        # assert len(explanation.saliency_map) == 1
-        # score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
-        # assert score == 1.0
-
-        # explanation = self.explainer(self.image, targets=["cat"], label_names=VOC_NAMES, colormap=False)
-        # assert len(explanation.saliency_map) == 1
-        # score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
-        # # No gt box for "cat" class
-        # assert score == 0.0
+        explanation = self.explainer(self.image,targets=["person"],label_names=VOC_NAMES,colormap=False)
+        assert len(explanation.saliency_map) == 1
+        score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
+        assert score == 1.0
 
         explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 1
@@ -116,6 +110,7 @@ class TestDummyRegression:
         # adcc_score = self.adcc.adcc(self.image, saliency_maps[0])
         # # Why metric for real image and detector is worse then for a random image?
         # assert adcc_score >= 0.1
+
 
     def test_explainer_images(self):
         images = [self.image, self.image]
