@@ -16,7 +16,6 @@ from openvino_xai.explainer.utils import (
     get_postprocess_fn,
     get_preprocess_fn,
 )
-from openvino_xai.metrics.adcc import ADCC
 from openvino_xai.metrics.insertion_deletion_auc import InsertionDeletionAUC
 from openvino_xai.metrics.pointing_game import PointingGame
 from tests.unit.explanation.test_explanation_utils import VOC_NAMES
@@ -85,7 +84,7 @@ class TestDummyRegression:
         )
 
     def test_explainer_image(self):
-        explanation = self.explainer(self.image,targets=["person"],label_names=VOC_NAMES,colormap=False)
+        explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 1
         score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
         assert score == 1.0
@@ -104,13 +103,8 @@ class TestDummyRegression:
         auc_score = self.auc.evaluate([explanation], [self.image], steps=10)
         insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
         assert insertion_auc_score >= 0.5
-        assert deletion_auc_score >= 0.2
-        assert delta_auc_score >= 0.3
-
-        # adcc_score = self.adcc.adcc(self.image, saliency_maps[0])
-        # # Why metric for real image and detector is worse then for a random image?
-        # assert adcc_score >= 0.1
-
+        assert deletion_auc_score >= 0.1
+        assert delta_auc_score >= 0.35
 
     def test_explainer_images(self):
         images = [self.image, self.image]

@@ -1,6 +1,9 @@
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
+
+from openvino_xai.explainer.explanation import Explanation, Layout
+from openvino_xai.metrics.base import BaseMetric
 
 
 def auc(arr):
@@ -8,30 +11,34 @@ def auc(arr):
     return np.abs((arr.sum() - arr[0] / 2 - arr[-1] / 2) / (arr.shape[0] - 1))
 
 
-class InsertionDeletionAUC:
-    def __init__(self, compiled_model, preprocess_fn, postprocess_fn):
-        self.preprocess_fn = preprocess_fn
-        self.postprocess_fn = postprocess_fn
-        self.compiled_model = compiled_model
+class InsertionDeletionAUC(BaseMetric):
+    """
+    Implementation of the Insertion and Deletion AUC by Petsiuk et al. 2018.
 
-    def predict(self, input) -> np.ndarray:
-        logits = self.compiled_model([self.preprocess_fn(input)])
-        logits = self.postprocess_fn(logits)[0]
-        return logits
+    References:
+        Petsiuk, Vitali, Abir Das, and Kate Saenko. "Rise: Randomized input sampling
+        for explanation of black-box models." arXiv preprint arXiv:1806.07421 (2018).
+    """
 
-    def insertion_deletion_auc(self, input_image, class_idx, saliency_map, steps=100):
+    def insertion_deletion_auc(
+        self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray, steps: int = 100
+    ) -> Tuple[float, float]:
         """
-        Calculate the Insertion AUC metric for images.
+        Calculate the Insertion and Deletion AUC metrics for one saliency map for one class.
 
         Parameters:
-        - model: the model to evaluate.
-        - input_image: the input image to the model (H, W, C).
-        - class_idx: the class of saliency map to evaluate.
-        - saliency_map: importance scores for each pixel (H, W).
-        - steps: number of steps for inserting pixels.
+        :param saliency_map: Importance scores for each pixel (H, W).
+        :type saliency_map: np.ndarray
+        :param class_idx: The class of saliency map to evaluate.
+        :type class_idx: int
+        :param input_image: The input image to the model (H, W, C).
+        :type input_image: np.ndarray
+        :param steps: Number of steps for inserting pixels.
+        :type steps: int
 
         Returns:
-        - insertion_auc_score: the calculated AUC for insertion.
+        - insertion_auc_score: Saliency map AUC for insertion.
+        - deletion_auc_score: Saliency map AUC for deletion.
         """
         # Values to start
         baseline_insertion = np.full_like(input_image, 0)
@@ -43,8 +50,7 @@ class InsertionDeletionAUC:
 
         insertion_scores, deletion_scores = [], []
         for i in range(steps + 1):
-            temp_image_insertion = baseline_insertion.copy()
-            temp_image_deletion = baseline_deletion.copy()
+            temp_image_insertion, temp_image_deletion = baseline_insertion.copy(), baseline_deletion.copy()
 
             num_pixels = int(i * len(sorted_indices[0]) / steps)
             x_indices = sorted_indices[0][:num_pixels]
@@ -55,38 +61,39 @@ class InsertionDeletionAUC:
             # Remove image pixels on the places of the important pixels
             temp_image_deletion[x_indices, y_indices] = 0
 
-            # Predict and record the score
-            # cv2.imshow("temp_image", temp_image)
-            temp_logits_insertion = self.predict(temp_image_insertion)
-            temp_logits_deletion = self.predict(temp_image_deletion)
+            # Predict on masked image
+            temp_logits_insertion = self.model_predict(temp_image_insertion)
+            temp_logits_deletion = self.model_predict(temp_image_deletion)
 
             insertion_scores.append(temp_logits_insertion[class_idx])
             deletion_scores.append(temp_logits_deletion[class_idx])
-        #     cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        return auc(np.array(insertion_scores)), auc(np.array(deletion_scores))
 
-        insertion_auc_score = auc(np.array(insertion_scores))
-        deletion_auc_score = auc(np.array(deletion_scores))
-        return insertion_auc_score, deletion_auc_score
-
-    def evaluate(self, explanations: List, input_images: List[np.ndarray], steps: int) -> Tuple[float, float, float]:
+    def evaluate(
+        self, explanations: List[Explanation], input_images: List[np.ndarray], steps: int, **kwargs: Any
+    ) -> Tuple[float, float, float]:
         """
-        Evaluate the insertion and deletion AUC for given explanations and input images.
+        Evaluate the insertion and deletion AUC over the list of images and its saliency maps.
 
         :param explanations: List of explanation objects containing saliency maps.
+        :type explanations: List[Explanation]
         :param input_images: List of input images as numpy arrays.
+        :type input_images: List[np.ndarray]
         :param steps: Number of steps for the insertion and deletion process.
+        :type steps: int
+
         :return: A tuple containing the mean insertion AUC, mean deletion AUC, and their difference (delta).
+        :rtype: float
         """
-        insertions, deletions = [], []
+        for explanation in explanations:
+            assert explanation.layout in [Layout.MULTIPLE_MAPS_PER_IMAGE_GRAY, Layout.MULTIPLE_MAPS_PER_IMAGE_COLOR]
+
+        results = []
         for input_image, explanation in zip(input_images, explanations):
             for class_idx, saliency_map in explanation.saliency_map.items():
-                insertion, deletion = self.insertion_deletion_auc(input_image, class_idx, saliency_map, steps)
-                insertions.append(insertion)
-                deletions.append(deletion)
+                insertion, deletion = self.insertion_deletion_auc(saliency_map, int(class_idx), input_image, steps)
+                results.append([insertion, deletion])
 
-        insertion = np.mean(np.array(insertions))
-        deletion = np.mean(np.array(deletion))
+        insertion, deletion = np.mean(np.array(results), axis=0)
         delta = insertion - deletion
-
         return insertion, deletion, delta

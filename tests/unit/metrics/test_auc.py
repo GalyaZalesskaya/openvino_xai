@@ -45,11 +45,11 @@ class TestAUC:
         )
 
     def test_insertion_deletion_auc(self):
-        input_image = np.random.rand(224, 224, 3)
         class_idx = 1
+        input_image = np.random.rand(224, 224, 3)
         saliency_map = np.random.rand(224, 224)
 
-        insertion_auc, deletion_auc = self.auc.insertion_deletion_auc(input_image, class_idx, saliency_map, self.steps)
+        insertion_auc, deletion_auc = self.auc.insertion_deletion_auc(saliency_map, class_idx, input_image, self.steps)
 
         for value in [insertion_auc, deletion_auc]:
             assert isinstance(value, float)
@@ -63,6 +63,7 @@ class TestAUC:
 
         insertion, deletion, delta = self.auc.evaluate(explanations, input_images, self.steps)
 
-        for value in [insertion, deletion, delta]:
+        for value in [insertion, deletion]:
             assert isinstance(value, float)
             assert 0 <= value <= 1
+        assert isinstance(delta, float)

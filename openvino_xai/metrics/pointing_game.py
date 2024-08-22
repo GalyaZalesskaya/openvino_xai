@@ -1,15 +1,16 @@
 # Copyright (C) 2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 from openvino_xai.common.utils import logger
 from openvino_xai.explainer.explanation import Explanation
+from openvino_xai.metrics.base import BaseMetric
 
 
-class PointingGame:
+class PointingGame(BaseMetric):
     """
     Implementation of the Pointing Game by Zhang et al., 2018.
 
@@ -55,7 +56,10 @@ class PointingGame:
         return False
 
     def evaluate(
-        self, explanations: List[Explanation], gt_bboxes: List[Dict[str, List[Tuple[int, int, int, int]]]]
+        self,
+        explanations: List[Explanation],
+        gt_bboxes: List[Dict[str, List[Tuple[int, int, int, int]]]],
+        **kwargs: Any,
     ) -> float:
         """
         Evaluates the Pointing Game metric over a set of images. Skips saliency maps if the gt bboxes for this class are absent.
