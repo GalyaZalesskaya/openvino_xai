@@ -86,12 +86,12 @@ class TestDummyRegression:
     def test_explainer_image(self):
         explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 1
-        score = self.pointing_game.evaluate([explanation], self.gt_bboxes)
-        assert score == 1.0
+        pointing_game_score = self.pointing_game.evaluate([explanation], self.gt_bboxes)["pointing_game"]
+        assert pointing_game_score == 1.0
 
         explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 1
-        auc_score = self.auc.evaluate([explanation], [self.image], steps=10)
+        auc_score = self.auc.evaluate([explanation], [self.image], steps=10).values()
         insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
         assert insertion_auc_score >= 0.9
         assert deletion_auc_score >= 0.2
@@ -100,7 +100,7 @@ class TestDummyRegression:
         # Two classes for saliency maps
         explanation = self.explainer(self.image, targets=["person", "cat"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 2
-        auc_score = self.auc.evaluate([explanation], [self.image], steps=10)
+        auc_score = self.auc.evaluate([explanation], [self.image], steps=10).values()
         insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
         assert insertion_auc_score >= 0.5
         assert deletion_auc_score >= 0.1
@@ -114,10 +114,10 @@ class TestDummyRegression:
             explanations.append(explanation)
         dataset_gt_bboxes = self.gt_bboxes * 2
 
-        pointing_game_score = self.pointing_game.evaluate(explanations, dataset_gt_bboxes)
+        pointing_game_score = self.pointing_game.evaluate(explanations, dataset_gt_bboxes)["pointing_game"]
         assert pointing_game_score == 1.0
 
-        auc_score = self.auc.evaluate(explanations, images, steps=10)
+        auc_score = self.auc.evaluate(explanations, images, steps=10).values()
         insertion_auc_score, deletion_auc_score, delta_auc_score = auc_score
         assert insertion_auc_score >= 0.9
         assert deletion_auc_score >= 0.2

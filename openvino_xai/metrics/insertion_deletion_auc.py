@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -6,8 +6,10 @@ from openvino_xai.explainer.explanation import Explanation, Layout
 from openvino_xai.metrics.base import BaseMetric
 
 
-def auc(arr):
-    """Returns normalized Area Under Curve of the array."""
+def AUC(arr: np.array) -> float:
+    """
+    Returns normalized Area Under Curve of the array.
+    """
     return np.abs((arr.sum() - arr[0] / 2 - arr[-1] / 2) / (arr.shape[0] - 1))
 
 
@@ -20,9 +22,29 @@ class InsertionDeletionAUC(BaseMetric):
         for explanation of black-box models." arXiv preprint arXiv:1806.07421 (2018).
     """
 
-    def insertion_deletion_auc(
-        self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray, steps: int = 100
-    ) -> Tuple[float, float]:
+    @staticmethod
+    def step_image_insertion_deletion(
+        num_pixels: int, sorted_indices: Tuple[np.ndarray, np.ndarray], input_image: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return insertion/deletion image based on number of pixels to add/delete on this step.
+        """
+        # Values to start
+        image_insertion = np.full_like(input_image, 0)
+        image_deletion = input_image.copy()
+
+        x_indices = sorted_indices[0][:num_pixels]
+        y_indices = sorted_indices[1][:num_pixels]
+
+        # Insert the image on the places of the important pixels
+        image_insertion[x_indices, y_indices] = input_image[x_indices, y_indices]
+        # Remove image pixels on the places of the important pixels
+        image_deletion[x_indices, y_indices] = 0
+        return image_insertion, image_deletion
+
+    def __call__(
+        self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray, steps: int = 100, **kwargs: Any
+    ) -> Dict[str, float]:
         """
         Calculate the Insertion and Deletion AUC metrics for one saliency map for one class.
 
@@ -37,41 +59,29 @@ class InsertionDeletionAUC(BaseMetric):
         :type steps: int
 
         Returns:
-        - insertion_auc_score: Saliency map AUC for insertion.
-        - deletion_auc_score: Saliency map AUC for deletion.
+        :return: A dictionary containing the AUC scores for insertion and deletion scores.
+        :rtype: Dict[str, float]
         """
-        # Values to start
-        baseline_insertion = np.full_like(input_image, 0)
-        baseline_deletion = input_image
-
         # Sort pixels by descending importance to find the most important pixels
         sorted_indices = np.argsort(-saliency_map.flatten())
         sorted_indices = np.unravel_index(sorted_indices, saliency_map.shape)
 
         insertion_scores, deletion_scores = [], []
         for i in range(steps + 1):
-            temp_image_insertion, temp_image_deletion = baseline_insertion.copy(), baseline_deletion.copy()
-
             num_pixels = int(i * len(sorted_indices[0]) / steps)
-            x_indices = sorted_indices[0][:num_pixels]
-            y_indices = sorted_indices[1][:num_pixels]
-
-            # Insert the image on the places of the important pixels
-            temp_image_insertion[x_indices, y_indices] = input_image[x_indices, y_indices]
-            # Remove image pixels on the places of the important pixels
-            temp_image_deletion[x_indices, y_indices] = 0
-
+            step_image_insertion, step_image_deletion = self.step_image_insertion_deletion(
+                num_pixels, sorted_indices, input_image
+            )
             # Predict on masked image
-            temp_logits_insertion = self.model_predict(temp_image_insertion)
-            temp_logits_deletion = self.model_predict(temp_image_deletion)
-
-            insertion_scores.append(temp_logits_insertion[class_idx])
-            deletion_scores.append(temp_logits_deletion[class_idx])
-        return auc(np.array(insertion_scores)), auc(np.array(deletion_scores))
+            insertion_scores.append(self.model_predict(step_image_insertion)[class_idx])
+            deletion_scores.append(self.model_predict(step_image_deletion)[class_idx])
+        insertion = AUC(np.array(insertion_scores))
+        deletion = AUC(np.array(deletion_scores))
+        return {"insertion": insertion, "deletion": deletion}
 
     def evaluate(
         self, explanations: List[Explanation], input_images: List[np.ndarray], steps: int, **kwargs: Any
-    ) -> Tuple[float, float, float]:
+    ) -> Dict[str, float]:
         """
         Evaluate the insertion and deletion AUC over the list of images and its saliency maps.
 
@@ -82,7 +92,7 @@ class InsertionDeletionAUC(BaseMetric):
         :param steps: Number of steps for the insertion and deletion process.
         :type steps: int
 
-        :return: A tuple containing the mean insertion AUC, mean deletion AUC, and their difference (delta).
+        :return: A Dict containing the mean insertion AUC, mean deletion AUC, and their difference (delta) as values.
         :rtype: float
         """
         for explanation in explanations:
@@ -91,9 +101,9 @@ class InsertionDeletionAUC(BaseMetric):
         results = []
         for input_image, explanation in zip(input_images, explanations):
             for class_idx, saliency_map in explanation.saliency_map.items():
-                insertion, deletion = self.insertion_deletion_auc(saliency_map, int(class_idx), input_image, steps)
-                results.append([insertion, deletion])
+                metric_dict = self(saliency_map, int(class_idx), input_image, steps)
+                results.append([metric_dict["insertion"], metric_dict["deletion"]])
 
         insertion, deletion = np.mean(np.array(results), axis=0)
         delta = insertion - deletion
-        return insertion, deletion, delta
+        return {"insertion": insertion, "deletion": deletion, "delta": delta}

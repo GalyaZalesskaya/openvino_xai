@@ -49,7 +49,7 @@ class TestAUC:
         input_image = np.random.rand(224, 224, 3)
         saliency_map = np.random.rand(224, 224)
 
-        insertion_auc, deletion_auc = self.auc.insertion_deletion_auc(saliency_map, class_idx, input_image, self.steps)
+        insertion_auc, deletion_auc = self.auc(saliency_map, class_idx, input_image, self.steps).values()
 
         for value in [insertion_auc, deletion_auc]:
             assert isinstance(value, float)
@@ -61,7 +61,7 @@ class TestAUC:
             Explanation({0: np.random.rand(224, 224), 1: np.random.rand(224, 224)}, targets=[0, 1]) for _ in range(5)
         ]
 
-        insertion, deletion, delta = self.auc.evaluate(explanations, input_images, self.steps)
+        insertion, deletion, delta = self.auc.evaluate(explanations, input_images, self.steps).values()
 
         for value in [insertion, deletion]:
             assert isinstance(value, float)
