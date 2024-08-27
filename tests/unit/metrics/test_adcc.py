@@ -1,3 +1,6 @@
+import json
+from typing import Callable, List, Mapping
+
 import cv2
 import numpy as np
 import openvino as ov
@@ -11,13 +14,18 @@ from openvino_xai.explainer.utils import (
     ActivationType,
     get_postprocess_fn,
     get_preprocess_fn,
+    sigmoid,
 )
+from openvino_xai.methods.black_box.base import Preset
+from openvino_xai.metrics.adcc import ADCC
 from openvino_xai.metrics.insertion_deletion_auc import InsertionDeletionAUC
+from openvino_xai.metrics.pointing_game import PointingGame
+from tests.unit.explanation.test_explanation_utils import VOC_NAMES
 
 MODEL_NAME = "mlc_mobilenetv3_large_voc"
 
 
-class TestAUC:
+class TestADCC:
     image = cv2.imread("tests/assets/cheetah_person.jpg")
     preprocess_fn = get_preprocess_fn(
         change_channel_order=True,
@@ -25,16 +33,13 @@ class TestAUC:
         hwc_to_chw=True,
     )
     postprocess_fn = get_postprocess_fn(activation=ActivationType.SIGMOID)
-    steps = 10
 
     @pytest.fixture(autouse=True)
     def setup(self, fxt_data_root):
         self.data_dir = fxt_data_root
         retrieve_otx_model(self.data_dir, MODEL_NAME)
         model_path = self.data_dir / "otx_models" / (MODEL_NAME + ".xml")
-        core = ov.Core()
-        model = core.read_model(model_path)
-        self.auc = InsertionDeletionAUC(model, self.preprocess_fn, self.postprocess_fn)
+        model = ov.Core().read_model(model_path)
 
         self.explainer = Explainer(
             model=model,
@@ -43,16 +48,26 @@ class TestAUC:
             explain_mode=ExplainMode.WHITEBOX,
         )
 
-    def test_insertion_deletion_auc(self):
-        class_idx = 1
-        input_image = np.random.rand(224, 224, 3)
+        self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer)
+
+    def test_adcc(self):
+        input_image = np.random.randint(0, 256, (224, 224, 3), dtype=np.uint8)
         saliency_map = np.random.rand(224, 224)
 
-        insertion_auc, deletion_auc = self.auc(saliency_map, class_idx, input_image, self.steps).values()
+        complexity_score = self.adcc.complexity(saliency_map)
+        assert complexity_score >= 0.2
 
-        for value in [insertion_auc, deletion_auc]:
-            assert isinstance(value, float)
-            assert 0 <= value <= 1
+        model_output = self.adcc.model_predict(input_image)
+        class_idx = np.argmax(model_output)
+
+        average_drop_score = self.adcc.average_drop(saliency_map, class_idx, input_image, model_output)
+        assert average_drop_score >= 0.2
+
+        coherency_score = self.adcc.coherency(saliency_map, class_idx, input_image)
+        assert coherency_score >= 0.2
+
+        adcc_score = self.adcc(saliency_map, class_idx, input_image)["adcc"]
+        assert adcc_score >= 0.5
 
     def test_evaluate(self):
         input_images = [np.random.rand(224, 224, 3) for _ in range(5)]
@@ -60,9 +75,7 @@ class TestAUC:
             Explanation({0: np.random.rand(224, 224), 1: np.random.rand(224, 224)}, targets=[0, 1]) for _ in range(5)
         ]
 
-        insertion, deletion, delta = self.auc.evaluate(explanations, input_images, self.steps).values()
+        adcc_score = self.adcc.evaluate(explanations, input_images)["adcc"]
 
-        for value in [insertion, deletion]:
-            assert isinstance(value, float)
-            assert 0 <= value <= 1
-        assert isinstance(delta, float)
+        assert isinstance(adcc_score, float)
+        assert 0 <= adcc_score <= 1

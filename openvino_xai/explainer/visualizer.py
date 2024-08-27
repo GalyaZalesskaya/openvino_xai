@@ -96,7 +96,7 @@ class Visualizer:
         explanation: Explanation,
         original_input_image: np.ndarray | None = None,
         output_size: Tuple[int, int] = None,
-        scaling: bool = False,
+        scaling: bool = True,
         resize: bool = True,
         colormap: bool = True,
         overlay: bool = False,
@@ -113,9 +113,9 @@ class Visualizer:
         :type original_input_image: np.ndarray
         :param output_size: Output size used for resize operation.
         :type output_size: Tuple[int, int]
-        :parameter scaling: If True, scaling saliency map into [0, 255] range (filling the whole range).
-            By default, scaling is embedded into the IR model.
-            Therefore, scaling=False here by default.
+        :parameter scaling: If True, return scaled saliency map into [0, 255] range (filling the whole range).
+            By default, scaling is embedded into the IR model, so scaling=True doesn't change saliency map.
+            If scaling=False transform and return saliency maps in [0, 1] range.
         :type scaling: bool
         :parameter resize: If True, resize saliency map to the input image size.
         :type resize: bool
@@ -135,8 +135,12 @@ class Visualizer:
         # Convert to numpy array to use vectorized scale (0 ~ 255) operation and speed up lots of classes scenario
         saliency_map_np = np.array(list(saliency_map_dict.values()))
 
-        if scaling and not resize and not overlay:
-            saliency_map_np = self._apply_scaling(explanation, saliency_map_np)
+        scaled = 0 <= np.max(saliency_map_np) <= 1 and 0 <= np.min(saliency_map_np) <= 1
+        if not scaled and not overlay:
+            if scaling and not resize:
+                saliency_map_np = self._apply_scaling(explanation, saliency_map_np)
+            if not scaling and not colormap:
+                saliency_map_np = saliency_map_np / 255
 
         if overlay:
             if original_input_image is None:
@@ -152,7 +156,10 @@ class Visualizer:
                     raise ValueError(
                         "Input data or output_size has to be provided for resize (for target size estimation)."
                     )
-                saliency_map_np = self._apply_resize(explanation, saliency_map_np, original_input_image, output_size)
+                apply_scaling = not scaled and scaling
+                saliency_map_np = self._apply_resize(
+                    explanation, saliency_map_np, original_input_image, output_size, apply_scaling
+                )
             if colormap:
                 saliency_map_np = self._apply_colormap(explanation, saliency_map_np)
 
@@ -174,6 +181,7 @@ class Visualizer:
         saliency_map_np: np.ndarray,
         original_input_image: np.ndarray = None,
         output_size: Tuple[int, int] = None,
+        apply_scaling: bool = False,
     ) -> np.ndarray:
         # TODO: support resize of colormapped images.
         if explanation.layout not in GRAY_LAYOUTS:
@@ -185,7 +193,9 @@ class Visualizer:
         saliency_map_np = resize(saliency_map_np, output_size)
 
         # Scaling has to be applied after resize to keep map in range 0..255
-        return self._apply_scaling(explanation, saliency_map_np)
+        if apply_scaling:
+            return self._apply_scaling(explanation, saliency_map_np)
+        return saliency_map_np
 
     @staticmethod
     def _apply_colormap(explanation: Explanation, saliency_map_np: np.ndarray) -> np.ndarray:
