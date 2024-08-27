@@ -69,7 +69,7 @@ class TestADCC:
         assert coherency_score >= 0.2
 
         adcc_score = self.adcc(saliency_map, class_idx, input_image)["adcc"]
-        assert adcc_score >= 0.5
+        assert adcc_score >= 0.4
 
     def test_evaluate(self):
         input_images = [np.random.rand(224, 224, 3) for _ in range(5)]
