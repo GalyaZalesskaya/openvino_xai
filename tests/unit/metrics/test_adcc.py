@@ -39,16 +39,18 @@ class TestADCC:
         self.data_dir = fxt_data_root
         retrieve_otx_model(self.data_dir, MODEL_NAME)
         model_path = self.data_dir / "otx_models" / (MODEL_NAME + ".xml")
-        model = ov.Core().read_model(model_path)
-
+        self.model = ov.Core().read_model(model_path)
         self.explainer = Explainer(
-            model=model,
+            model=self.model,
             task=Task.CLASSIFICATION,
             preprocess_fn=self.preprocess_fn,
             explain_mode=ExplainMode.WHITEBOX,
         )
+        self.adcc = ADCC(self.model, self.preprocess_fn, self.postprocess_fn, self.explainer)
 
-        self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer)
+    def test_adcc_init_wo_explainer(self):
+        adcc_wo_explainer = ADCC(self.model, self.preprocess_fn, self.postprocess_fn)
+        assert isinstance(adcc_wo_explainer.explainer, Explainer)
 
     def test_adcc(self):
         input_image = np.random.randint(0, 256, (224, 224, 3), dtype=np.uint8)
