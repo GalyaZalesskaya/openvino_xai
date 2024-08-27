@@ -171,7 +171,7 @@ class Explainer:
         original_input_image: np.ndarray | None = None,
         label_names: List[str] | None = None,
         output_size: Tuple[int, int] | None = None,
-        scaling: bool = True,
+        scaling: bool = False,
         resize: bool = True,
         colormap: bool = True,
         overlay: bool = False,
@@ -190,9 +190,9 @@ class Explainer:
         :type label_names: List[str] | None
         :param output_size: Output size used for resize operation.
         :type output_size:
-        :parameter scaling: If True, return scaled saliency map into [0, 255] range (filling the whole range).
-            By default, scaling is embedded into the IR model, so scaling=True doesn't change saliency map.
-            If scaling=False transform and return saliency maps in [0, 1] range.
+        :parameter scaling: If True, scaling saliency map into [0, 255] range (filling the whole range).
+            By default, scaling is embedded into the IR model.
+            Therefore, scaling=False here by default.
         :type scaling: bool
         :parameter resize: If True, resize saliency map to the input image size.
         :type resize: bool

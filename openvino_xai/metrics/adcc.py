@@ -79,7 +79,7 @@ class ADCC(BaseMetric):
 
     def __call__(self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray) -> Dict[str, float]:
         """
-        Calculate the ADCC metric for a given normilized saliency map [0, 1] and class index.
+        Calculate the ADCC metric for a given saliency map and class index.
         The more the better.
 
         Parameters:
@@ -94,9 +94,9 @@ class ADCC(BaseMetric):
         :return: A dictionary containing the ADCC, coherency, complexity, and average drop metrics.
         :rtype: Dict[str, float]
         """
-        assert (
-            np.max(saliency_map) <= 1 and np.min(saliency_map) >= 0
-        ), "Saliency map should be normalized between 0 and 1"
+        if not (0 <= np.min(saliency_map) and np.max(saliency_map) <= 1):
+            # Scale saliency map to [0, 1]
+            saliency_map = saliency_map / 255
 
         model_output = self.model_predict(input_image)
 
@@ -105,7 +105,6 @@ class ADCC(BaseMetric):
         com = self.complexity(saliency_map)
 
         adcc = 3 / (1 / coh + 1 / (1 - com) + 1 / (1 - avgdrop))
-
         return {"adcc": adcc, "coherency": coh, "complexity": com, "average_drop": avgdrop}
 
     def evaluate(

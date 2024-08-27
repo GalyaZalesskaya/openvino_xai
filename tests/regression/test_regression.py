@@ -84,9 +84,7 @@ class TestDummyRegression:
         self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer)
 
     def test_explainer_image(self):
-        explanation = self.explainer(
-            self.image, targets=["person"], label_names=VOC_NAMES, colormap=False, scaling=False
-        )
+        explanation = self.explainer(self.image, targets=["person"], label_names=VOC_NAMES, colormap=False)
         assert len(explanation.saliency_map) == 1
 
         pointing_game_score = self.pointing_game.evaluate([explanation], self.gt_bboxes)["pointing_game"]
