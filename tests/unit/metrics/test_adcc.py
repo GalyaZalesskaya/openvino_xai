@@ -52,6 +52,17 @@ class TestADCC:
         adcc_wo_explainer = ADCC(self.model, self.preprocess_fn, self.postprocess_fn)
         assert isinstance(adcc_wo_explainer.explainer, Explainer)
 
+    def test_adcc_sal_map_scaling(self):
+        # Explainer(...embed_scaling=True)
+        saliency_map = np.random.randint(0, 256, (224, 224))
+        saliency_map = self.adcc._scale_map(saliency_map)
+        assert 0 <= np.min(saliency_map) and np.max(saliency_map) <= 1
+
+        # Explainer(...embed_scaling=False)
+        saliency_map = np.random.uniform(-1, 1, (224, 224))
+        saliency_map = self.adcc._scale_map(saliency_map)
+        assert 0 <= np.min(saliency_map) and np.max(saliency_map) <= 1
+
     def test_adcc(self):
         input_image = np.random.randint(0, 256, (224, 224, 3), dtype=np.uint8)
         saliency_map = np.random.rand(224, 224)
