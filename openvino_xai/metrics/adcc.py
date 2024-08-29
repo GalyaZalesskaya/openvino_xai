@@ -129,6 +129,13 @@ class ADCC(BaseMetric):
         for input_image, explanation in zip(input_images, explanations):
             for class_idx, saliency_map in explanation.saliency_map.items():
                 metric_dict = self(saliency_map, int(class_idx), input_image)
-                results.append([metric_dict["adcc"], metric_dict["coherency"], metric_dict["complexity"], metric_dict["average_drop"]])
+                results.append(
+                    [
+                        metric_dict["adcc"],
+                        metric_dict["coherency"],
+                        metric_dict["complexity"],
+                        metric_dict["average_drop"],
+                    ]
+                )
         adcc, coherency, complexity, average_drop = np.mean(np.array(results), axis=0)
         return {"adcc": adcc, "coherency": coherency, "complexity": complexity, "average_drop": average_drop}
