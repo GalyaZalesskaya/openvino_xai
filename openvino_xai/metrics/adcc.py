@@ -97,7 +97,7 @@ class ADCC(BaseMetric):
         # Scale the saliency map to [0, 1] range.
         if not (0 <= np.min(saliency_map) and np.max(saliency_map) <= 1):
             saliency_map = scaling(saliency_map, cast_to_uint8=False, max_value=1)
-    
+
         model_output = self.model_predict(input_image)
 
         avgdrop = self.average_drop(saliency_map, class_idx, input_image, model_output)
