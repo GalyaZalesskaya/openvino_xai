@@ -77,16 +77,6 @@ class ADCC(BaseMetric):
         """
         return abs(saliency_map).sum() / (saliency_map.shape[-1] * saliency_map.shape[-2])
 
-    def _scale_map(self, saliency_map: np.ndarray) -> np.ndarray:
-        """
-        Scale the saliency map to [0, 1] range.
-        """
-        if np.min(saliency_map) < 0:
-            saliency_map = scaling(saliency_map, cast_to_uint8=False, max_value=1)
-        elif np.max(saliency_map) > 1:
-            saliency_map = saliency_map / 255
-        return saliency_map
-
     def __call__(self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray) -> Dict[str, float]:
         """
         Calculate the ADCC metric for a given saliency map and class index.
@@ -104,7 +94,10 @@ class ADCC(BaseMetric):
         :return: A dictionary containing the ADCC, coherency, complexity, and average drop metrics.
         :rtype: Dict[str, float]
         """
-        saliency_map = self._scale_map(saliency_map)
+        # Scale the saliency map to [0, 1] range.
+        if not (0 <= np.min(saliency_map) and np.max(saliency_map) <= 1):
+            saliency_map = scaling(saliency_map, cast_to_uint8=False, max_value=1)
+    
         model_output = self.model_predict(input_image)
 
         avgdrop = self.average_drop(saliency_map, class_idx, input_image, model_output)
