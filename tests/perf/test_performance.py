@@ -1,14 +1,12 @@
 # Copyright (C) 2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import csv
 import os
 import shutil
 from pathlib import Path
 from time import time
 
 import cv2
-import numpy as np
 import openvino as ov
 import pandas as pd
 import pytest
@@ -16,12 +14,9 @@ import pytest
 from openvino_xai.common.parameters import Method, Task
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
 from openvino_xai.explainer.utils import (
-    ActivationType,
     get_postprocess_fn,
     get_preprocess_fn,
-    get_score,
 )
-from openvino_xai.explainer.visualizer import Visualizer
 from openvino_xai.utils.model_export import export_to_ir, export_to_onnx
 
 timm = pytest.importorskip("timm")
