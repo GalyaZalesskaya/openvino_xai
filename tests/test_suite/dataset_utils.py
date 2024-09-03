@@ -66,9 +66,10 @@ def define_dataset_type(data_root: Path, ann_path: Path) -> DatasetType:
         if any(image_name.endswith(".jpg") for image_name in os.listdir(data_root)):
             return DatasetType.COCO
 
-    required_voc_dirs = {"JPEGImages", "SegmentationObject", "ImageSets", "Annotations", "SegmentationClass"}
+    required_voc_dirs1 = {"JPEGImages", "ImageSets", "Annotations"}
+    required_voc_dirs2 = {"Data", "ImageSets", "Annotations"}
     for _, dir, _ in os.walk(data_root):
-        if required_voc_dirs.issubset(set(dir)):
+        if required_voc_dirs1.issubset(set(dir)) or required_voc_dirs2.issubset(set(dir)):
             return DatasetType.VOC
 
     raise ValueError("Dataset type is not supported")

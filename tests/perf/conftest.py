@@ -191,13 +191,18 @@ def fxt_dataset_parameters(request: pytest.FixtureRequest) -> list[tuple[Path, P
     data_root = request.config.getoption("--dataset-data-root")
     ann_path = request.config.getoption("--dataset-ann-path")
 
-    if not data_root and not ann_path:
-        coco_dataset = (Path("tests/assets/cheetah_coco/images/val"), Path("tests/assets/cheetah_coco/annotations/instances_val.json"))
-        voc_dataset = (Path("tests/assets/cheetah_voc"), None)
-        dataset_parameters = [coco_dataset, voc_dataset]
-        msg = f"No dataset provided, use toy COCO and VOC dataset intead\n"
-    else:
-        dataset_parameters = [(Path(data_root), Path(ann_path) if ann_path else None)]
+    # if not data_root and not ann_path:
+    #     coco_dataset = (Path("tests/assets/cheetah_coco/images/val"), Path("tests/assets/cheetah_coco/annotations/instances_val.json"))
+    #     voc_dataset = (Path("tests/assets/cheetah_voc"), None)
+    #     dataset_parameters = [coco_dataset, voc_dataset]
+    #     msg = f"No dataset provided, use toy COCO and VOC dataset intead\n"
+    # else:
+    #     dataset_parameters = [(Path(data_root), Path(ann_path) if ann_path else None)]
+    # coco_dataset = (Path("/home/gzalessk/datasets/coco/val2017/"), Path("/home/gzalessk/datasets/coco/annotations/instances_val2017.json"))
+    # dataset_parameters = [coco_dataset]
+
+    voc_dataset = (Path("/home/gzalessk/datasets/imagenet_loc"), None)
+    dataset_parameters = [voc_dataset]
 
     msg = f"Dataset parameters: {dataset_parameters}"
     log.info(msg)

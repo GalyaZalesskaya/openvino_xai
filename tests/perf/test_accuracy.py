@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple
 from time import time
 from pathlib import Path
+from tqdm import tqdm
 
 import numpy as np
 import openvino as ov
@@ -71,7 +72,7 @@ class TestAccuracy:
             self.anns_to_gt_bboxes = voc_anns_to_gt_bboxes
 
     def test_explainer_images(self):
-        records = []
+
         for data_root, ann_path in self.dataset_parameters:
 
             # data_metric_path = self.output_dir / self.MODEL_NAME
@@ -81,19 +82,23 @@ class TestAccuracy:
             self.setup_dataset(data_root, ann_path)
             dataset_name  = "coco" if self.dataset_type == DatasetType.COCO else "voc"
 
-            batch_size = 100
-            for batch_idx in range(0, len(self.dataset), batch_size):
-                lrange = batch_idx*batch_size
-                rrange = min(len(self.dataset), (batch_idx+1)*batch_size)
+            records = []
+            explained_images = 0
+            experiment_start_time = time()
+            batch_size = 10
+            max_num = 10 # len(self.dataset)
+            for lrange in range(0, max_num, batch_size):
+                rrange = min(max_num, lrange+batch_size)
 
                 start_time = time()
                 images, explanations, dataset_gt_bboxes = [], [], []
-                # for image, anns in self.dataset[lrange:rrange]:
                 for i in range(lrange, rrange):
                     image, anns = self.dataset[i]
                     image_np = np.array(image)
                     gt_bbox_dict = self.anns_to_gt_bboxes(anns, self.dataset_labels_dict)
                     targets = [target for target in gt_bbox_dict.keys() if target in VOC_NAMES]
+                    if len(targets) == 0:
+                        continue
 
                     explanation = self.explainer(image_np, targets=targets, label_names=VOC_NAMES, colormap=False)
 
@@ -105,17 +110,28 @@ class TestAccuracy:
                 record.update(self.get_scores_times(explanations, images, dataset_gt_bboxes, start_time))
                 records.append(record)
 
+                explained_images += len(explanations)
+
+            experiment_time = time() - experiment_start_time
+
             df = pd.DataFrame(records)
+            df = df.round(3)
             df.to_csv(data_metric_path / f"accuracy_{dataset_name}.csv", index=False)
-        
-            mean_scores = [{key: np.mean([record[key] for record in records]) for key in records[0].keys() if key!='range'}]
-            df = pd.DataFrame(mean_scores)
+
+            mean_scores_dict = {"explained_images": explained_images, "overall_time": experiment_time}
+            mean_scores_dict.update({key: np.mean([record[key] for record in records if key in record]) for key in records[0].keys() if key!='range'})
+            df = pd.DataFrame([mean_scores_dict])
+            df = df.round(3)
             df.to_csv(data_metric_path / f"mean_accuracy_{dataset_name}.csv", index=False)
 
-        return records
+        return True
 
     def get_scores_times(self, explanations, images, dataset_gt_bboxes, start_time):
         score = {}
+
+        if len(explanations) == 0:
+            return score
+
         explain_time = time() - start_time
         score["explain_time"] = explain_time
 
@@ -131,6 +147,6 @@ class TestAccuracy:
         score.update(self.adcc.evaluate(explanations, images))
         score["adcc_time"] = time() - previous_time
 
-        for metric in ["explain_time", "pointing_game_time", "auc_time","adcc_time", "pointing_game", "insertion", "deletion", "delta", "adcc" ]:
-            score[metric] = float(f'{score[metric]:.2f}')
+        # for metric in ["explain_time", "pointing_game_time", "auc_time","adcc_time", "pointing_game", "insertion", "deletion", "delta", "adcc", "coherency","complexity","average_drop"]:
+        #     score[metric] = float(f'{score[metric]:.2f}')
         return score
