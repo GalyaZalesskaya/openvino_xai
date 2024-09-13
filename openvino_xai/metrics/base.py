@@ -16,7 +16,7 @@ class BaseMetric(ABC):
         model: ov.Model = None,
         preprocess_fn: Callable[[np.ndarray], np.ndarray] = IdentityPreprocessFN(),
         postprocess_fn: Callable[[np.ndarray], np.ndarray] = None,
-        device_name: str = "CPU",
+        device_name: str = "AUTO",
     ):
         # Pass model_predict to class initialization directly?
         self.model = model

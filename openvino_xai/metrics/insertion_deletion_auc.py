@@ -43,7 +43,7 @@ class InsertionDeletionAUC(BaseMetric):
         return image_insertion, image_deletion
 
     def __call__(
-        self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray, steps: int = 100, **kwargs: Any
+        self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray, steps: int = 30, **kwargs: Any
     ) -> Dict[str, float]:
         """
         Calculate the Insertion and Deletion AUC metrics for one saliency map for one class.

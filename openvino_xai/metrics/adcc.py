@@ -42,9 +42,10 @@ class ADCC(BaseMetric):
         explanation map (image masked with saliency map), instead of the full image.
         The less the better.
         """
-        confidence_on_input = np.max(model_output)
+        confidence_on_input = model_output[class_idx]
 
-        masked_image = (image * saliency_map[:, :, None]).astype(np.uint8)
+        # masked_image = (image * saliency_map[:, :, None]).astype(np.uint8)
+        masked_image = image * saliency_map[:, :, None]
         prediction_on_saliency_map = self.model_predict(masked_image)
         confidence_on_saliency_map = prediction_on_saliency_map[class_idx]
 
@@ -59,7 +60,7 @@ class ADCC(BaseMetric):
 
         masked_image = image * saliency_map[:, :, None]
         saliency_map_mapped_image = self.explainer(masked_image, targets=[class_idx], colormap=False, scaling=False)
-        saliency_map_mapped_image = saliency_map_mapped_image.saliency_map[class_idx]
+        saliency_map_mapped_image = scaling(saliency_map_mapped_image.saliency_map[class_idx], cast_to_uint8=False, max_value=1)
 
         A, B = saliency_map.flatten(), saliency_map_mapped_image.flatten()
         # Pearson correlation coefficient
@@ -75,7 +76,7 @@ class ADCC(BaseMetric):
         Defined as L1 norm of the saliency map.
         The less the better.
         """
-        return abs(saliency_map).sum() / (saliency_map.shape[-1] * saliency_map.shape[-2])
+        return saliency_map.sum() / (saliency_map.shape[-1] * saliency_map.shape[-2])
 
     def __call__(self, saliency_map: np.ndarray, class_idx: int, input_image: np.ndarray) -> Dict[str, float]:
         """

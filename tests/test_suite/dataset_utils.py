@@ -25,8 +25,8 @@ datasets = pytest.importorskip("torchvision.datasets")
 
 
 class DatasetType(Enum):
-    COCO = "coco"
-    VOC = "voc"
+    COCO = "COCO"
+    ILSVRC = "ILSVRC"
 
 
 def coco_anns_to_gt_bboxes(
@@ -70,6 +70,6 @@ def define_dataset_type(data_root: Path, ann_path: Path) -> DatasetType:
     required_voc_dirs2 = {"Data", "ImageSets", "Annotations"}
     for _, dir, _ in os.walk(data_root):
         if required_voc_dirs1.issubset(set(dir)) or required_voc_dirs2.issubset(set(dir)):
-            return DatasetType.VOC
+            return DatasetType.ILSVRC
 
     raise ValueError("Dataset type is not supported")
