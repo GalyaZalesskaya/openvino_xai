@@ -8,6 +8,7 @@ from time import time
 from pathlib import Path
 from tqdm import tqdm
 
+from openvino_xai.common.utils import IdentityPreprocessFN, has_xai, logger
 import numpy as np
 import openvino as ov
 import pytest
@@ -86,8 +87,8 @@ class TestAccuracy:
             set_dynamic_batch = model_name in TRANSFORMER_MODELS
             export_to_onnx(timm_model, onnx_path, dummy_tensor, set_dynamic_batch)
             export_to_ir(onnx_path, output_model_dir / "model_fp32.xml")
-        model = ov.Core().read_model(ir_path)
-        return model, model_cfg
+        ov_model = ov.Core().read_model(ir_path)
+        return timm_model, ov_model, model_cfg
     
     def setup_process_fn(self, model_cfg):
         if self.model_name in VOC_MODELS:
@@ -119,13 +120,13 @@ class TestAccuracy:
         if self.model_name in TRANSFORMER_MODELS and explain_method == Method.RECIPROCAM:
             explain_method = Method.VITRECIPROCAM
 
-        self.explainer = Explainer(
-            model=model,
-            task=Task.CLASSIFICATION,
-            preprocess_fn=self.preprocess_fn,
-            explain_mode=explain_mode,
-            explain_method=explain_method,
-        )
+        # self.explainer = Explainer(
+        #     model=model,
+        #     task=Task.CLASSIFICATION,
+        #     preprocess_fn=self.preprocess_fn,
+        #     explain_mode=explain_mode,
+        #     explain_method=explain_method,
+        # )
 
     @pytest.fixture(autouse=True)
     def setup(self, fxt_output_root, fxt_data_root):
@@ -148,26 +149,35 @@ class TestAccuracy:
         self.data_metric_path = self.output_dir / self.model_name
         os.makedirs(self.data_metric_path, exist_ok=True)
 
-        model, model_cfg = self.setup_model(self.data_dir, self.model_name)
+        torch_model, ov_model, model_cfg = self.setup_model(self.data_dir, self.model_name)
         self.setup_process_fn(model_cfg)
-        self.setup_explainer(model, explain_method)
+        # self.setup_explainer(model, explain_method)
 
-        self.pointing_game = PointingGame()
-        self.auc = InsertionDeletionAUC(model, self.preprocess_fn, self.postprocess_fn)
-        self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer)
-        self.model_predict = self.auc.model_predict
+        # self.pointing_game = PointingGame()
+        # self.auc = InsertionDeletionAUC(model, self.preprocess_fn, self.postprocess_fn)
+        # self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer)
+        # self.model_predict = self.auc.model_predict
 
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                            std=[0.229, 0.224, 0.225])
         trans = transforms.Compose([
             transforms.Resize([256, 256]),
-            transforms.CenterCrop((224, 224))])
+            transforms.CenterCrop((224, 224)),
+            transforms.ToTensor(),
+            normalize,
+                    ])
+        # softmax = torch.nn.Softmax(dim=1)
+        from openvino_xai.common.utils import sigmoid, softmax
+        model_compiled = ov.Core().compile_model(model=ov_model, device_name="CPU")
 
         records = []
+        deltas = []
         # street_sign_label = "n01806143"
         # street_sign_label = "n06794110"
         explained_images = 0
         experiment_start_time = time()
-        max_num = 10#len(self.dataset)
-        batch_size = 10#1000
+        max_num = len(self.dataset)
+        batch_size = 5000
         for lrange in range(0, max_num, batch_size):
             rrange = min(max_num, lrange+batch_size)
 
@@ -177,13 +187,38 @@ class TestAccuracy:
                 image, anns = self.dataset[i]
                 
                 # image_np = np.array(image) # PIL -> np.array
-                original_input_image = np.array(image) # PIL -> np.array
-                image_np = np.array(trans(image)) # PIL -> np.array
+                # original_input_image = np.array(image) # PIL -> np.array
+                torch_image = trans(image)[None, :,:,:]
+                # image_np = np.array(torch_image) # PIL -> np.array
                 gt_bbox_dict = self.anns_to_gt_bboxes(anns, self.dataset_labels_dict)
+                target = list(gt_bbox_dict.keys())[0]
+                target = [i for i in range(len(IMAGENET_LABELS)) if IMAGENET_LABELS[i] == target][0]
+
+                torch_logits = torch_model(torch_image)
+                processed_logits_torch = softmax(torch_logits.detach().numpy())[0] # numpy softmax
+                # torch_predicted_label = processed_logits_torch.argmax()
+                # torch_max_confidence = processed_logits_torch.max()
+                torch_gt_score = processed_logits_torch[target]
+
+                ov_logits = model_compiled(torch_image)["logits"]
+                processed_logits_ov = softmax(ov_logits)[0] # numpy softmax
+                # ov_predicted_label = processed_logits_ov.argmax()
+                # ov_max_confidence = processed_logits_ov.max()
+                ov_gt_score = processed_logits_ov[target]
+
+                deltas.append(np.abs(torch_gt_score - ov_gt_score))
+                # print(processed_logits_torch, processed_logits_ov)
+                # np.argmax(processed_logits_ov.detach().numpy()) -> 65
+                # targets = np.argmax(self.model_predict(torch_image))
                 # if street_sign_label in gt_bbox_dict.keys():
                 #     explanation = self.explainer(image_np, original_input_image=original_input_image, targets=street_sign_label, label_names=IMAGENET_LABELS, colormap=True, overlay=True)
                 #     explanation.save(self.data_metric_path / "sal_maps" / street_sign_label, f"explanation_{i}_")
                 #     print(i)
+        delta_gt_score = np.mean(np.array(deltas))
+        with open('/home/gzalessk/code/openvino_xai/tests/perf/delta_gt_score.txt', 'w') as file:
+            file.write(str(delta_gt_score))
+        return delta_gt_score
+        pass
 
         #         targets = list(gt_bbox_dict.keys())
         #         # Assume the multiclass (not multilabel) classification scenario
@@ -238,7 +273,7 @@ class TestAccuracy:
             torch_model = models.resnet18(pretrained=True).to("cpu")
         elif model_id == "resnet50.a1_in1k":
             torch_model = models.resnet50(pretrained=True).to("cpu")
-        timm_model.eval()
+        torch_model.eval()
         model_cfg = timm_model.default_cfg
         num_classes = model_cfg["num_classes"]
         if num_classes != 1000:
