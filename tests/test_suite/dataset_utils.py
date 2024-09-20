@@ -19,7 +19,7 @@ from openvino_xai.explainer.utils import (
     get_preprocess_fn,
 )
 from openvino_xai.metrics import ADCC, InsertionDeletionAUC, PointingGame
-from tests.unit.explanation.test_explanation_utils import VOC_NAMES
+from tests.unit.explainer.test_explanation_utils import VOC_NAMES
 
 datasets = pytest.importorskip("torchvision.datasets")
 

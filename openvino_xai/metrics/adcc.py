@@ -8,7 +8,7 @@ from openvino_xai.common.utils import scaling
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
 from openvino_xai.explainer.explanation import Explanation
 from openvino_xai.metrics.base import BaseMetric
-
+from openvino_xai.explainer.explanation import Explanation, Layout, ONE_MAP_LAYOUTS
 
 class ADCC(BaseMetric):
     """
@@ -20,19 +20,11 @@ class ADCC(BaseMetric):
         Computer Vision and Pattern Recognition. 2021.
     """
 
-    def __init__(self, model, preprocess_fn, postprocess_fn, explainer=None, device_name="CPU"):
+    def __init__(self, model, preprocess_fn, postprocess_fn, explainer, device_name="CPU"):
         super().__init__(
             model=model, preprocess_fn=preprocess_fn, postprocess_fn=postprocess_fn, device_name=device_name
         )
-        if explainer is None:
-            self.explainer = Explainer(
-                model=model,
-                task=Task.CLASSIFICATION,
-                preprocess_fn=self.preprocess_fn,
-                explain_mode=ExplainMode.WHITEBOX,
-            )
-        else:
-            self.explainer = explainer
+        self.explainer = explainer
 
     def average_drop(
         self, saliency_map: np.ndarray, class_idx: int, image: np.ndarray, model_output: np.ndarray
@@ -59,8 +51,10 @@ class ADCC(BaseMetric):
         """
 
         masked_image = image * saliency_map[:, :, None]
-        saliency_map_mapped_image = self.explainer(masked_image, targets=[class_idx], colormap=False, scaling=False)
-        saliency_map_mapped_image = scaling(saliency_map_mapped_image.saliency_map[class_idx], cast_to_uint8=False, max_value=1)
+
+        saliency_map_mapped_image = self.explainer(masked_image, targets=[class_idx], colormap=False, scaling=False, resize=True)
+        saliency_map_mapped_image = list(saliency_map_mapped_image.saliency_map.values())[0]
+        saliency_map_mapped_image = scaling(saliency_map_mapped_image, cast_to_uint8=False, max_value=1)
 
         A, B = saliency_map.flatten(), saliency_map_mapped_image.flatten()
         # Pearson correlation coefficient
@@ -101,6 +95,9 @@ class ADCC(BaseMetric):
 
         model_output = self.model_predict(input_image)
 
+        if class_idx is None:
+            class_idx = np.argmax(model_output)
+
         avgdrop = self.average_drop(saliency_map, class_idx, input_image, model_output)
         coh = self.coherency(saliency_map, class_idx, input_image)
         com = self.complexity(saliency_map)
@@ -127,7 +124,8 @@ class ADCC(BaseMetric):
         results = []
         for input_image, explanation in zip(input_images, explanations):
             for class_idx, saliency_map in explanation.saliency_map.items():
-                metric_dict = self(saliency_map, int(class_idx), input_image)
+                target_idx = None if explanation.layout in ONE_MAP_LAYOUTS else int(class_idx)
+                metric_dict = self(saliency_map, target_idx, input_image)
                 results.append(
                     [
                         metric_dict["adcc"],

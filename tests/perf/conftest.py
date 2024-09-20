@@ -199,7 +199,6 @@ def fxt_dataset_parameters(request: pytest.FixtureRequest) -> list[tuple[Path, P
         dataset_parameters = [coco_dataset, voc_dataset]
         msg = f"No dataset provided, use toy COCO and VOC dataset intead\n"
 
-
     # coco_dataset = (Path("/home/gzalessk/datasets/coco/val2017/"), Path("/home/gzalessk/datasets/coco/annotations/instances_val2017.json"))
     # dataset_parameters = [coco_dataset]
 
