@@ -45,6 +45,7 @@ def pytest_addoption(parser: pytest.Parser):
         help="Path to dataset annotation file",
     )
 
+
 @pytest.fixture(scope="session")
 def fxt_num_repeat(request: pytest.FixtureRequest) -> int:
     """Number of repeated trials."""
@@ -185,28 +186,14 @@ def fxt_perf_summary(
     data.to_excel(fxt_output_root / "perf-summary.xlsx")
     print(f"    -> Saved to {fxt_output_root}")
 
+
 @pytest.fixture(scope="session")
-def fxt_dataset_parameters(request: pytest.FixtureRequest) -> list[tuple[Path, Path | None]]:
+def fxt_dataset_parameters(request: pytest.FixtureRequest) -> tuple[Path | None, Path | None]:
     """Retrieve dataset parameters for tests."""
     data_root = request.config.getoption("--dataset-data-root")
     ann_path = request.config.getoption("--dataset-ann-path")
 
     if data_root != "":
-        dataset_parameters = [(Path(data_root), Path(ann_path) if ann_path else None)]
+        return (Path(data_root), Path(ann_path) if ann_path else None)
     else:
-        coco_dataset = (Path("tests/assets/cheetah_coco/images/val"), Path("tests/assets/cheetah_coco/annotations/instances_val.json"))
-        voc_dataset = (Path("tests/assets/cheetah_voc"), None)
-        dataset_parameters = [coco_dataset, voc_dataset]
-        msg = f"No dataset provided, use toy COCO and VOC dataset intead\n"
-
-    # coco_dataset = (Path("/home/gzalessk/datasets/coco/val2017/"), Path("/home/gzalessk/datasets/coco/annotations/instances_val2017.json"))
-    # dataset_parameters = [coco_dataset]
-
-    voc_dataset = (Path("/home/gzalessk/datasets/imagenet_loc"), None)
-    dataset_parameters = [voc_dataset]
-
-    msg = f"Dataset parameters: {dataset_parameters}"
-    log.info(msg)
-    print(msg)
-
-    return dataset_parameters
+        return (None, None)

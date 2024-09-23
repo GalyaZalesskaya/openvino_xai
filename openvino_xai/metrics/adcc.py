@@ -3,12 +3,10 @@ from typing import Any, Dict, List
 import numpy as np
 from scipy.stats import pearsonr
 
-from openvino_xai import Task
 from openvino_xai.common.utils import scaling
-from openvino_xai.explainer.explainer import Explainer, ExplainMode
-from openvino_xai.explainer.explanation import Explanation
+from openvino_xai.explainer.explanation import ONE_MAP_LAYOUTS, Explanation
 from openvino_xai.metrics.base import BaseMetric
-from openvino_xai.explainer.explanation import Explanation, Layout, ONE_MAP_LAYOUTS
+
 
 class ADCC(BaseMetric):
     """
@@ -27,7 +25,7 @@ class ADCC(BaseMetric):
         self.explainer = explainer
 
     def average_drop(
-        self, saliency_map: np.ndarray, class_idx: int, image: np.ndarray, model_output: np.ndarray
+        self, masked_image: np.ndarray, class_idx: int, image: np.ndarray, model_output: np.ndarray
     ) -> float:
         """
         Measures the average percentage drop in confidence for the target class when the model sees only the
@@ -35,28 +33,22 @@ class ADCC(BaseMetric):
         The less the better.
         """
         confidence_on_input = model_output[class_idx]
-
-        # masked_image = (image * saliency_map[:, :, None]).astype(np.uint8)
-        masked_image = image * saliency_map[:, :, None]
         prediction_on_saliency_map = self.model_predict(masked_image)
         confidence_on_saliency_map = prediction_on_saliency_map[class_idx]
 
         return max(0.0, confidence_on_input - confidence_on_saliency_map) / confidence_on_input
 
-    def coherency(self, saliency_map: np.ndarray, class_idx: int, image: np.ndarray) -> float:
+    def coherency(self, saliency_map: np.ndarray, masked_image: np.ndarray, class_idx: int, image: np.ndarray) -> float:
         """
         Measures the coherency of the saliency map. The explanation map (image masked with saliency map) should contain all the relevant features that explain a prediction and should remove useless features in a coherent way.
         Saliency map and saliency map of exlanation map should be similar.
         The more the better.
         """
+        saliency_map_masked_image = self.explainer(masked_image, targets=[class_idx], colormap=False, scaling=False)
+        saliency_map_masked_image = list(saliency_map_masked_image.saliency_map.values())[0]  # only one target
+        saliency_map_masked_image = scaling(saliency_map_masked_image, cast_to_uint8=False, max_value=1)
 
-        masked_image = image * saliency_map[:, :, None]
-
-        saliency_map_mapped_image = self.explainer(masked_image, targets=[class_idx], colormap=False, scaling=False, resize=True)
-        saliency_map_mapped_image = list(saliency_map_mapped_image.saliency_map.values())[0]
-        saliency_map_mapped_image = scaling(saliency_map_mapped_image, cast_to_uint8=False, max_value=1)
-
-        A, B = saliency_map.flatten(), saliency_map_mapped_image.flatten()
+        A, B = saliency_map.flatten(), saliency_map_masked_image.flatten()
         # Pearson correlation coefficient
         y, _ = pearsonr(A, B)
         y = (y + 1) / 2
@@ -94,12 +86,11 @@ class ADCC(BaseMetric):
             saliency_map = scaling(saliency_map, cast_to_uint8=False, max_value=1)
 
         model_output = self.model_predict(input_image)
+        masked_image = input_image * saliency_map[:, :, None]
+        class_idx = np.argmax(model_output) if class_idx is None else class_idx
 
-        if class_idx is None:
-            class_idx = np.argmax(model_output)
-
-        avgdrop = self.average_drop(saliency_map, class_idx, input_image, model_output)
-        coh = self.coherency(saliency_map, class_idx, input_image)
+        avgdrop = self.average_drop(masked_image, class_idx, input_image, model_output)
+        coh = self.coherency(saliency_map, masked_image, class_idx, input_image)
         com = self.complexity(saliency_map)
 
         adcc = 3 / (1 / coh + 1 / (1 - com) + 1 / (1 - avgdrop))
@@ -128,11 +119,11 @@ class ADCC(BaseMetric):
                 metric_dict = self(saliency_map, target_idx, input_image)
                 results.append(
                     [
-                        metric_dict["adcc"],
                         metric_dict["coherency"],
                         metric_dict["complexity"],
                         metric_dict["average_drop"],
                     ]
                 )
-        adcc, coherency, complexity, average_drop = np.mean(np.array(results), axis=0)
+        coherency, complexity, average_drop = np.mean(np.array(results), axis=0)
+        adcc = 3 / (1 / coherency + 1 / (1 - complexity) + 1 / (1 - average_drop))
         return {"adcc": adcc, "coherency": coherency, "complexity": complexity, "average_drop": average_drop}

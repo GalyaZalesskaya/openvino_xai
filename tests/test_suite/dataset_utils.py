@@ -3,30 +3,16 @@
 
 import os
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-import openvino as ov
-import pytest
-from pathlib import Path
-
-from openvino_xai import Task
-from openvino_xai.common.utils import retrieve_otx_model
-from openvino_xai.explainer.explainer import Explainer, ExplainMode
-from openvino_xai.explainer.utils import (
-    ActivationType,
-    get_postprocess_fn,
-    get_preprocess_fn,
-)
-from openvino_xai.metrics import ADCC, InsertionDeletionAUC, PointingGame
-from tests.unit.explainer.test_explanation_utils import VOC_NAMES
-
-datasets = pytest.importorskip("torchvision.datasets")
 
 
 class DatasetType(Enum):
     COCO = "COCO"
     ILSVRC = "ILSVRC"
+    VOC = "VOC"
 
 
 def coco_anns_to_gt_bboxes(
@@ -66,10 +52,12 @@ def define_dataset_type(data_root: Path, ann_path: Path) -> DatasetType:
         if any(image_name.endswith(".jpg") for image_name in os.listdir(data_root)):
             return DatasetType.COCO
 
-    required_voc_dirs1 = {"JPEGImages", "ImageSets", "Annotations"}
-    required_voc_dirs2 = {"Data", "ImageSets", "Annotations"}
+    required_voc_dirs = {"JPEGImages", "ImageSets", "Annotations"}
+    required_ilsvrc_dirs = {"Data", "ImageSets", "Annotations"}
     for _, dir, _ in os.walk(data_root):
-        if required_voc_dirs1.issubset(set(dir)) or required_voc_dirs2.issubset(set(dir)):
+        if required_ilsvrc_dirs.issubset(set(dir)):
             return DatasetType.ILSVRC
+        if required_voc_dirs.issubset(set(dir)):
+            return DatasetType.VOC
 
     raise ValueError("Dataset type is not supported")

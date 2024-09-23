@@ -2,9 +2,9 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-from openvino_xai.explainer.explanation import Explanation, Layout, MULTIPLE_MAP_LAYOUTS
+from openvino_xai.explainer.explanation import ONE_MAP_LAYOUTS, Explanation
 from openvino_xai.metrics.base import BaseMetric
-from openvino_xai.explainer.explanation import Explanation, Layout, ONE_MAP_LAYOUTS
+
 
 def AUC(arr: np.array) -> float:
     """

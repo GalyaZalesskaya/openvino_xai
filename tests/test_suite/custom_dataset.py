@@ -1,33 +1,20 @@
+import os
+
 from torchvision import datasets
 
-# import collections
-import os
-# from pathlib import Path
-# from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-# from xml.etree.ElementTree import Element as ET_Element
-
-# try:
-#     from defusedxml.ElementTree import parse as ET_parse
-# except ImportError:
-#     from xml.etree.ElementTree import parse as ET_parse
-
-# from PIL import Image
-
-# from .utils import download_and_extract_archive, verify_str_arg
-# from .vision import VisionDataset
 
 class CustomVOCDetection(datasets.VOCDetection):
-    _SPLITS_DIR = "CLS-LOC"
     _TARGET_DIR = "Annotations"
     _TARGET_FILE_EXT = ".xml"
 
     def __init__(self, root, download=False, year="2012", image_set="val"):
         # Call the parent class's __init__ method
         try:
+            self._SPLITS_DIR = "Main"
             super(CustomVOCDetection, self).__init__(root, year=year, image_set=image_set, download=download)
         except Exception:
+            self._SPLITS_DIR = "CLS-LOC"
             voc_root = root
-
             self.image_set = image_set
 
             splits_dir = os.path.join(voc_root, "ImageSets", self._SPLITS_DIR)

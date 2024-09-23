@@ -7,9 +7,6 @@ import openvino as ov
 from openvino_xai.common.utils import IdentityPreprocessFN
 from openvino_xai.explainer.explanation import Explanation
 
-import torchvision.transforms as transforms
-import PIL
-
 
 class BaseMetric(ABC):
     """Base class for XAI quality metric."""

@@ -13,11 +13,9 @@ import pytest
 
 from openvino_xai.common.parameters import Method, Task
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
-from openvino_xai.explainer.utils import (
-    get_postprocess_fn,
-    get_preprocess_fn,
-)
-from openvino_xai.utils.model_export import export_to_ir, export_to_onnx
+from openvino_xai.explainer.utils import get_postprocess_fn, get_preprocess_fn
+from openvino_xai.utils.model_export import export_to_onnx
+from tests.perf.perf_tests_utils import clear_cache, convert_timm_to_ir, get_timm_model
 
 timm = pytest.importorskip("timm")
 torch = pytest.importorskip("torch")
@@ -70,19 +68,8 @@ class TestPerfClassificationTimm:
         if model_id in NON_SUPPORTED_BY_WB_MODELS:
             pytest.skip(reason="Not supported yet")
 
-        timm_model, model_cfg = self.get_timm_model(model_id)
-
+        _, model_cfg = convert_timm_to_ir(model_id, self.data_dir, self.supported_num_classes)
         ir_path = self.data_dir / "timm_models" / "converted_models" / model_id / "model_fp32.xml"
-        if not ir_path.is_file():
-            output_model_dir = self.output_dir / "timm_models" / "converted_models" / model_id
-            output_model_dir.mkdir(parents=True, exist_ok=True)
-            ir_path = output_model_dir / "model_fp32.xml"
-            input_size = [1] + list(timm_model.default_cfg["input_size"])
-            dummy_tensor = torch.rand(input_size)
-            onnx_path = output_model_dir / "model_fp32.onnx"
-            set_dynamic_batch = model_id in LIMITED_DIVERSE_SET_OF_VISION_TRANSFORMER_MODELS
-            export_to_onnx(timm_model, onnx_path, dummy_tensor, set_dynamic_batch)
-            export_to_ir(onnx_path, output_model_dir / "model_fp32.xml")
 
         if model_id in LIMITED_DIVERSE_SET_OF_CNN_MODELS:
             explain_method = Method.RECIPROCAM
@@ -144,11 +131,11 @@ class TestPerfClassificationTimm:
         df = pd.DataFrame(records)
         df.to_csv(self.output_dir / f"perf-raw-wb-{model_id}.csv")
 
-        self.clear_cache()
+        clear_cache(self.data_dir, self.cache_dir, self.clear_cache_converted_models, self.clear_cache_hf_models)
 
     @pytest.mark.parametrize("model_id", TEST_MODELS)
     def test_classification_black_box(self, model_id, fxt_num_repeat: int, fxt_num_masks: int, fxt_tags: dict):
-        timm_model, model_cfg = self.get_timm_model(model_id)
+        timm_model, model_cfg = get_timm_model(model_id, self.supported_num_classes)
 
         onnx_path = self.data_dir / "timm_models" / "converted_models" / model_id / "model_fp32.onnx"
         if not onnx_path.is_file():
@@ -216,24 +203,4 @@ class TestPerfClassificationTimm:
         df = pd.DataFrame(records)
         df.to_csv(self.output_dir / f"perf-raw-bb-{model_id}.csv", index=False)
 
-        self.clear_cache()
-
-    def get_timm_model(self, model_id):
-        timm_model = timm.create_model(model_id, in_chans=3, pretrained=True, checkpoint_path="")
-        timm_model.eval()
-        model_cfg = timm_model.default_cfg
-        num_classes = model_cfg["num_classes"]
-        if num_classes not in self.supported_num_classes:
-            self.clear_cache()
-            pytest.skip(f"Number of model classes {num_classes} unknown")
-        return timm_model, model_cfg
-
-    def clear_cache(self):
-        if self.clear_cache_converted_models:
-            ir_model_dir = self.data_dir / "timm_models" / "converted_models"
-            if ir_model_dir.is_dir():
-                shutil.rmtree(ir_model_dir)
-        if self.clear_cache_hf_models:
-            huggingface_hub_dir = self.cache_dir / "huggingface" / "hub"
-            if huggingface_hub_dir.is_dir():
-                shutil.rmtree(huggingface_hub_dir)
+        clear_cache(self.data_dir, self.cache_dir, self.clear_cache_converted_models, self.clear_cache_hf_models)
