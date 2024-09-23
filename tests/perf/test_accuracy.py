@@ -146,8 +146,7 @@ class TestAccuracy:
     @pytest.fixture(autouse=True)
     def setup(self, fxt_output_root, fxt_data_root, fxt_dataset_parameters):
         self.data_dir = fxt_data_root
-        self.output_dir = Path("/home/gzalessk/code/openvino_xai/tests/perf/validation_results/draft")
-        # self.output_dir = fxt_output_root
+        self.output_dir = fxt_output_root
         self.supported_num_classes = {1000: 1000}
 
         self.setup_dataset(fxt_dataset_parameters)
