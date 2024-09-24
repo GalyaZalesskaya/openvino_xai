@@ -15,7 +15,12 @@ from openvino_xai.common.parameters import Method, Task
 from openvino_xai.explainer.explainer import Explainer, ExplainMode
 from openvino_xai.explainer.utils import get_postprocess_fn, get_preprocess_fn
 from openvino_xai.utils.model_export import export_to_onnx
-from tests.perf.perf_tests_utils import clear_cache, convert_timm_to_ir, get_timm_model
+from tests.perf.perf_tests_utils import (
+    clear_cache,
+    convert_timm_to_ir,
+    get_timm_model,
+    seed_everything,
+)
 
 timm = pytest.importorskip("timm")
 torch = pytest.importorskip("torch")
@@ -31,18 +36,6 @@ from tests.intg.test_classification_timm import (
 TEST_MODELS = (
     LIMITED_DIVERSE_SET_OF_CNN_MODELS + LIMITED_DIVERSE_SET_OF_VISION_TRANSFORMER_MODELS + NON_SUPPORTED_BY_WB_MODELS
 )
-
-
-def seed_everything(seed: int):
-    """Set random seed."""
-    import os
-    import random
-
-    import numpy as np
-
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    np.random.seed(seed)
 
 
 class TestPerfClassificationTimm:

@@ -18,15 +18,14 @@ class ADCC(BaseMetric):
         Computer Vision and Pattern Recognition. 2021.
     """
 
-    def __init__(self, model, preprocess_fn, postprocess_fn, explainer, device_name="CPU"):
+    def __init__(self, model, preprocess_fn, postprocess_fn, explainer, device_name="AUTO", **kwargs: Any):
         super().__init__(
             model=model, preprocess_fn=preprocess_fn, postprocess_fn=postprocess_fn, device_name=device_name
         )
         self.explainer = explainer
+        self.black_box_kwargs = kwargs
 
-    def average_drop(
-        self, masked_image: np.ndarray, class_idx: int, image: np.ndarray, model_output: np.ndarray
-    ) -> float:
+    def average_drop(self, masked_image: np.ndarray, class_idx: int, model_output: np.ndarray) -> float:
         """
         Measures the average percentage drop in confidence for the target class when the model sees only the
         explanation map (image masked with saliency map), instead of the full image.
@@ -44,7 +43,9 @@ class ADCC(BaseMetric):
         Saliency map and saliency map of exlanation map should be similar.
         The more the better.
         """
-        saliency_map_masked_image = self.explainer(masked_image, targets=[class_idx], colormap=False, scaling=False)
+        saliency_map_masked_image = self.explainer(
+            masked_image, targets=class_idx, colormap=False, scaling=False, **self.black_box_kwargs
+        )
         saliency_map_masked_image = list(saliency_map_masked_image.saliency_map.values())[0]  # only one target
         saliency_map_masked_image = scaling(saliency_map_masked_image, cast_to_uint8=False, max_value=1)
 
@@ -89,7 +90,7 @@ class ADCC(BaseMetric):
         masked_image = input_image * saliency_map[:, :, None]
         class_idx = np.argmax(model_output) if class_idx is None else class_idx
 
-        avgdrop = self.average_drop(masked_image, class_idx, input_image, model_output)
+        avgdrop = self.average_drop(masked_image, class_idx, model_output)
         coh = self.coherency(saliency_map, masked_image, class_idx, input_image)
         com = self.complexity(saliency_map)
 

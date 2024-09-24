@@ -86,9 +86,6 @@ class PointingGame(BaseMetric):
         hits = 0.0
         num_sal_maps = 0
         for explanation, image_gt_bboxes in zip(explanations, gt_bboxes):
-            label_names = explanation.label_names
-            assert label_names is not None, "Label names are required for pointing game evaluation."
-
             for class_idx, class_sal_map in explanation.saliency_map.items():
                 if explanation.layout in ONE_MAP_LAYOUTS:
                     # Activation map
@@ -96,7 +93,10 @@ class PointingGame(BaseMetric):
                         gt_bbox for class_gt_bboxes in image_gt_bboxes.values() for gt_bbox in class_gt_bboxes
                     ]
                 else:
+                    label_names = explanation.label_names
+                    assert label_names is not None, "Label names are required for pointing game evaluation."
                     label_name = label_names[int(class_idx)]
+
                     if label_name not in image_gt_bboxes:
                         logger.info(
                             f"No ground-truth bbox for {label_name} saliency map. "

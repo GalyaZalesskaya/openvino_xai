@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import random
 from pathlib import Path
 from time import time
 from typing import Any, Dict, List, Tuple
@@ -49,7 +50,9 @@ IMAGENET_MODELS = [
     # "resnext50_32x4d.a1h_in1k",
     # "vgg16.tv_in1k"
 ]
-VOC_MODELS = ["mlc_mobilenetv3_large_voc"]
+VOC_MODELS = [
+    # "mlc_mobilenetv3_large_voc"
+]
 TRANSFORMER_MODELS = [
     "deit_tiny_patch16_224.fb_in1k",  # Downloads last month 8,377
     # "deit_base_patch16_224.fb_in1k", # Downloads last month 6,323
@@ -78,6 +81,14 @@ class TestAccuracy:
             self.dataset = CustomVOCDetection(root=data_root, download=False, year="2012", image_set="val")
             self.dataset_labels_dict = None
             self.anns_to_gt_bboxes = voc_anns_to_gt_bboxes
+        self.dataset = self.subset_dataset(num_samples=5000, seed=42)
+
+    def subset_dataset(self, num_samples=-1, seed=42):
+        if num_samples == -1 or num_samples >= len(self.dataset):
+            return self.dataset
+        random.seed(seed)
+        subset_indices = random.sample(range(len(self.dataset)), num_samples)
+        return torch.utils.data.Subset(self.dataset, subset_indices)
 
     def setup_model(self, data_dir, model_name):
         if model_name in VOC_MODELS:
@@ -139,14 +150,13 @@ class TestAccuracy:
         if explain_method in BlackBoxXAIMethods:
             # TODO: Make Preset configurable as well
             kwargs.update({"preset": Preset.SPEED})
-        if explain_method == Method.RISE:
-            kwargs.update({"num_masks": 5})
         return kwargs
 
     @pytest.fixture(autouse=True)
     def setup(self, fxt_output_root, fxt_data_root, fxt_dataset_parameters):
         self.data_dir = fxt_data_root
-        self.output_dir = fxt_output_root
+        # self.output_dir = fxt_output_root
+        self.output_dir = Path("/home/gzalessk/code/openvino_xai/tests/perf/validation_results/5000_subset_42_seed")
         self.supported_num_classes = {1000: 1000}
 
         self.setup_dataset(fxt_dataset_parameters)
@@ -161,11 +171,11 @@ class TestAccuracy:
 
         model, model_cfg = self.setup_model(self.data_dir, self.model_name)
         self.setup_process_fn(model_cfg)
-        bb_kwargs = self.setup_explainer(model, explain_method)
+        black_box_kwargs = self.setup_explainer(model, explain_method)
 
         self.pointing_game = PointingGame()
         self.auc = InsertionDeletionAUC(model, self.preprocess_fn, self.postprocess_fn)
-        self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer)
+        self.adcc = ADCC(model, self.preprocess_fn, self.postprocess_fn, self.explainer, **black_box_kwargs)
 
         records = []
         explained_images = 0
@@ -195,7 +205,7 @@ class TestAccuracy:
                     targets=intersected_targets,
                     label_names=self.dataset_label_list,
                     colormap=False,
-                    **bb_kwargs,
+                    **black_box_kwargs,
                 )
                 images.append(image_np)
                 explanations.append(explanation)

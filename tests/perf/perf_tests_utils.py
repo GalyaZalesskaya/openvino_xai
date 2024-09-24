@@ -18,6 +18,18 @@ from tests.intg.test_classification_timm import (
 )
 
 
+def seed_everything(seed: int):
+    """Set random seed."""
+    import os
+    import random
+
+    import numpy as np
+
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+
+
 def convert_timm_to_ir(model_id: str, data_dir: Path, supported_num_classes: Dict[int, int]):
     timm_model, model_cfg = get_timm_model(model_id, supported_num_classes)
 
