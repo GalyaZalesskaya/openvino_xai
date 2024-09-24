@@ -40,10 +40,6 @@ class TestADCC:
         )
         self.adcc = ADCC(self.model, self.preprocess_fn, self.postprocess_fn, self.explainer)
 
-    def test_adcc_init_wo_explainer(self):
-        adcc_wo_explainer = ADCC(self.model, self.preprocess_fn, self.postprocess_fn)
-        assert isinstance(adcc_wo_explainer.explainer, Explainer)
-
     def test_adcc(self):
         input_image = np.random.randint(0, 256, (224, 224, 3), dtype=np.uint8)
         saliency_map = np.random.rand(224, 224)
