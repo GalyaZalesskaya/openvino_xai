@@ -80,3 +80,11 @@ class TestADCC:
 
         assert isinstance(adcc_score, float)
         assert 0 <= adcc_score <= 1
+
+        # Activation map
+        explanations = [
+            Explanation({"per_image_map": np.random.rand(224, 224)}, targets="per_image_map", task=Task.CLASSIFICATION)
+        ]
+        adcc_score = self.adcc.evaluate(explanations, input_images)["adcc"]
+        assert isinstance(adcc_score, float)
+        assert 0 <= adcc_score <= 1
