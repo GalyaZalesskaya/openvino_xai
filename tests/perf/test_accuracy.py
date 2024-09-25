@@ -5,12 +5,13 @@ import os
 import random
 from pathlib import Path
 from time import time
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import openvino as ov
 import pandas as pd
 import pytest
+from tqdm import tqdm
 
 from openvino_xai import Task
 from openvino_xai.common.parameters import (
@@ -153,14 +154,13 @@ class TestAccuracy:
         return kwargs
 
     @pytest.fixture(autouse=True)
-    def setup(self, fxt_output_root, fxt_data_root, fxt_dataset_parameters):
+    def setup(self, fxt_data_root, fxt_output_root, fxt_dataset_parameters):
         self.data_dir = fxt_data_root
-        # self.output_dir = fxt_output_root
-        self.output_dir = Path("/home/gzalessk/code/openvino_xai/tests/perf/validation_results/5000_subset_42_seed")
+        self.output_dir = fxt_output_root
         self.supported_num_classes = {1000: 1000}
 
         self.setup_dataset(fxt_dataset_parameters)
-        self.dataset_name = "coco" if self.dataset_type == DatasetType.COCO else "voc"
+        self.dataset_name = self.dataset_type.value
 
     @pytest.mark.parametrize("model_id", TEST_MODELS)
     @pytest.mark.parametrize("explain_method", EXPLAIN_METHODS)
@@ -180,11 +180,10 @@ class TestAccuracy:
         records = []
         explained_images = 0
         experiment_start_time = time()
-        max_num = len(self.dataset)
-        batch_size = 5000
+        batch_size = 1000
 
-        for lrange in range(0, max_num, batch_size):
-            rrange = min(max_num, lrange + batch_size)
+        for lrange in tqdm(range(0, batch_size), desc="Processing batches"):
+            rrange = min(len(self.dataset), lrange + batch_size)
 
             start_time = time()
             images, explanations, dataset_gt_bboxes = [], [], []
@@ -214,7 +213,7 @@ class TestAccuracy:
             # Write per-batch statistics to track failures
             explained_images += len(explanations)
             record = {"range": f"{lrange}-{rrange}"}
-            record.update(self.get_scores_times(explanations, images, dataset_gt_bboxes, start_time))
+            record.update(self.get_xai_metrics(explanations, images, dataset_gt_bboxes, start_time))
             records.append(record)
 
             df = pd.DataFrame([record]).round(3)
@@ -232,7 +231,7 @@ class TestAccuracy:
         df = pd.DataFrame([mean_scores_dict]).round(3)
         df.to_csv(self.data_metric_path / f"mean_accuracy_{self.dataset_name}.csv", index=False)
 
-    def get_scores_times(
+    def get_xai_metrics(
         self,
         explanations: list[Explanation],
         images: list[np.ndarray],
@@ -243,14 +242,14 @@ class TestAccuracy:
         if len(explanations) == 0:
             return score
 
-        def evaluate_and_time(metric_name, evaluation_func, *args, **kwargs):
+        def evaluate_metric_time(metric_name, evaluation_func, *args, **kwargs):
             previous_time = time()
             score.update(evaluation_func(*args, **kwargs))
             score[f"{metric_name}_time"] = time() - previous_time
 
         score["explain_time"] = time() - start_time
-        evaluate_and_time("pointing_game", self.pointing_game.evaluate, explanations, dataset_gt_bboxes)
-        evaluate_and_time("auc", self.auc.evaluate, explanations, images, steps=30)
-        evaluate_and_time("adcc", self.adcc.evaluate, explanations, images)
+        evaluate_metric_time("pointing_game", self.pointing_game.evaluate, explanations, dataset_gt_bboxes)
+        evaluate_metric_time("auc", self.auc.evaluate, explanations, images, steps=30)
+        evaluate_metric_time("adcc", self.adcc.evaluate, explanations, images)
 
         return score
