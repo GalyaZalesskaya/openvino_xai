@@ -63,8 +63,7 @@ class InsertionDeletionAUC(BaseMetric):
         :rtype: Dict[str, float]
         """
 
-        if class_idx is None:
-            class_idx = np.argmax(self.model_predict(input_image))
+        class_idx = np.argmax(self.model_predict(input_image)) if class_idx is None else class_idx
 
         # Sort pixels by descending importance to find the most important pixels
         sorted_indices = np.argsort(-saliency_map.flatten())
