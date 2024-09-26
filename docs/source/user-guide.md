@@ -24,6 +24,7 @@ Content:
   - [XAI insertion (white-box usage)](#xai-insertion-white-box-usage)
   - [XAI methods](#xai-methods)
     - [Overview](#overview)
+    - [Methods performance-accuracy comparison](#methods-performance-accuracy-comparison)
     - [White-box methods](#white-box-methods)
     - [Black-box methods](#black-box-methods)
   - [Plot saliency maps](#plot-saliency-maps)
@@ -393,7 +394,7 @@ Target layer is the part of the model graph where XAI branch will be inserted (a
 
 All supported methods are gradient-free, which suits deployment framework settings (e.g. OpenVINO™), where the model is in optimized or compiled representation.
 
-## Methods performance/accuracy comparison:
+## Methods performance-accuracy comparison
 
 The table below compares accuracy and performace of different models and explain methods (learn more about [Quality Metrics](#measure-quality-metrics-of-saliency-maps)):
 
