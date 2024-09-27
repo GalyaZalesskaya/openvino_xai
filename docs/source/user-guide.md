@@ -396,19 +396,21 @@ All supported methods are gradient-free, which suits deployment framework settin
 
 ## Methods performance-accuracy comparison
 
-The table below compares accuracy and performace of different models and explain methods (learn more about [Quality Metrics](#measure-quality-metrics-of-saliency-maps)):
+The table below compares accuracy and performace of different models and explain methods (learn more about [Quality Metrics](#measure-quality-metrics-of-saliency-maps)).
 
-|            Model            | Explain mode | Explain method | Pointing game |   | Insertion | Deletion |   Delta  |   |   ADCC   | Coherency | Complexity | Average Drop | #Model inferences |
-|:---------------------------:|:------------:|:--------------:|:-------------:|---|:---------:|:--------:|:--------:|---|:--------:|:---------:|:----------:|:------------:|:-----------------:|
-| deit - tiny   (transformer) |   White box  | VIT ReciproCAM |    **89.9**   |   |    22.4   |  **4.5** | **18.0** |   |   70.4   |    88.9   |  **38.1**  |     34.3     |         1*        |
-|                             |              | Activation map |      56.6     |   |    7.8    |    7.0   |    0.8   |   |   46.9   |    74.0   |    53.7    |     65.4     |         1         |
-|                             |   Black Box  |      AISE      |      73.9     |   |    15.9   |    8.9   |    7.0   |   |   66.6   |    73.9   |    44.3    |     26.0     |         60        |
-|                             |              |      RISE      |      85.5     |   |  **23.2** |    5.8   |   17.4   |   | **74.8** |  **92.5** |    42.3    |   **16.6**   |        2000       |
-|                             |              |                |               |   |           |          |          |   |          |           |            |              |                   |
-|           resnet18          |   White box  |   ReciproCAM   |    **89.5**   |   |    33.9   |  **5.9** | **28.0** |   | **77.3** |    91.1   |    30.2    |     25.9     |         1*        |
-|                             |              | Activation map |      87.0     |   |  **36.3** |   10.5   |   25.9   |   |   74.4   |  **97.9** |  **25.2**  |     40.2     |         1         |
-|                             |   Black Box  |      AISE      |      72.0     |   |    22.5   |   12.4   |   10.1   |   |   67.4   |    69.3   |    44.5    |     16.9     |         60        |
-|                             |              |      RISE      |      87.0     |   |    34.6   |    7.1   |   27.5   |   |   77.1   |    93.0   |    42.0    |    **8.3**   |        2000       |
+Metrics were measured on a 10% random subset of the [ILSVRC 2012](https://www.image-net.org/challenges/LSVRC/index.php) validation dataset (5000 images, seed 42).
+
+|            Model            | Explain mode | Explain method | Explain time<br>#Model inferences |   | Pointing game |   | Insertion | Deletion |   |   ADCC   | Coherency | Complexity | Average Drop |
+|:---------------------------:|:------------:|:--------------:|:---------------------------------:|---|:-------------:|---|:---------:|:--------:|---|:--------:|:---------:|:----------:|:------------:|
+| deit - tiny   (transformer) |   White box  | VIT ReciproCAM |                 1*                |   |    **89.9**   |   |    22.4   |  **4.5** |   |   70.4   |    88.9   |  **38.1**  |     34.3     |
+|                             |              | Activation map |                 1                 |   |      56.6     |   |    7.8    |    7.0   |   |   46.9   |    74.0   |    53.7    |     65.4     |
+|                             |   Black Box  |      AISE      |                 60                |   |      73.9     |   |    15.9   |    8.9   |   |   66.6   |    73.9   |    44.3    |     26.0     |
+|                             |              |      RISE      |                2000               |   |      85.5     |   |  **23.2** |    5.8   |   | **74.8** |  **92.5** |    42.3    |   **16.6**   |
+|                             |              |                |                                   |   |               |   |           |          |   |          |           |            |              |
+|           resnet18          |   White box  |   ReciproCAM   |                 1*                |   |    **89.5**   |   |    33.9   |  **5.9** |   | **77.3** |    91.1   |    30.2    |     25.9     |
+|                             |              | Activation map |                 1                 |   |      87.0     |   |  **36.3** |   10.5   |   |   74.4   |  **97.9** |  **25.2**  |     40.2     |
+|                             |   Black Box  |      AISE      |                 60                |   |      72.0     |   |    22.5   |   12.4   |   |   67.4   |    69.3   |    44.5    |     16.9     |
+|                             |              |      RISE      |                2000               |   |      87.0     |   |    34.6   |    7.1   |   |   77.1   |    93.0   |    42.0    |    **8.3**   |
 
 \* Recipro-CAM re-infers part of the graph (usually neck + head or last transformer block) H*W times, where HxW is the feature map size of the target layer.
 
@@ -692,7 +694,7 @@ To compare different saliency maps, you can use the implemented quality metrics:
   - **Coherence** - The coherency between the saliency map on the input image and saliency map on the explanation map (image masked with the saliency map). Requires generating an extra explanation (can be time-consuming for black box methods).
   - **Complexity** - Measures the L1 norm of the saliency map (average value per pixel). Fewer important pixels -> less complexity -> better saliency map.
 
-- **Insertion-Deletion AUC** ([paper](https://arxiv.org/abs/1806.07421)) - Measures the AUC of the curve of model confidence when important pixels are sequentially inserted or deleted. Time-consuming, requires 60 model inferences: 30 steps of the insertion and deletion process.
+- **Insertion-Deletion AUC** ([paper](https://arxiv.org/abs/1806.07421)) - Measures the AUC of the curve of model confidence when important pixels are sequentially inserted or deleted. Time-consuming, requires 60 model inferences: 30 steps for insertion and 30 steps for deletion (number of steps is configurable).
 
 - **Pointing Game** ([paper](https://arxiv.org/abs/1608.00507)/[impl](https://github.com/understandable-machine-intelligence-lab/Quantus/blob/main/quantus/metrics/localisation/pointing_game.py)) - Returns True if the most important saliency map pixel falls into the object ground truth bounding box. Requires ground truth annotation, so it is convenient to use on public datasets (COCO, VOC, ILSVRC) rather than individual images (check [accuracy_tests](../../tests/perf/test_accuracy.py) for examples).
 
@@ -700,11 +702,11 @@ Here is a comparison of the performance time (measured in model inferences) for 
 
 | Explain mode | Explain method | Explain time** | Pointing Game |                                           Insertion/Deletion AUC                                          |            ADCC            |
 |:------------:|:--------------:|:----------------------------------:|:-------------:|:---------------------------------------------------------------------------------------------------------:|:--------------------------:|
-| White Box    | Activation map |                  1                 |       0       | 30 steps insertion + 30 steps deletion + 1 to define predicted class  and check difference in its   score |     2 + 1 explain (1*)     |
-|              |   ReciproCAM   |                 1*                 |       0       |                                   30 steps insertion + 30 steps deletion                                  |     2 + 1 explain (1*)     |
-|              | ViT ReciproCAM |                 1*                 |       0       |                                   30 steps insertion + 30 steps deletion                                  |     2 + 1 explain (1*)     |
-| Black Box    |    AISE-classification    |               120-500              |       0       |                                   30 steps insertion + 30 steps deletion                                  |   2 + 1 explain (120-150)  |
-|              |      RISE      |             1000-10000             |       0       |                                   30 steps insertion + 30 steps deletion                                  | 2 + 1 explain (1000-10000) |
+| White Box    | Activation map |                  1                 |       0       | 30 insertion + 30 deletion + 1 to define predicted class  and check difference in its   score |     2 + 1 explain (1*)     |
+|              |   ReciproCAM   |                 1*                 |       0       |                                   30 insertion + 30 deletion                                  |     2 + 1 explain (1*)     |
+|              | ViT ReciproCAM |                 1*                 |       0       |                                   30 insertion + 30 deletion                                  |     2 + 1 explain (1*)     |
+| Black Box    |    AISE-classification    |               120-500              |       0       |                                  30 insertion + 30 deletion                                  |   2 + 1 explain (120-150)  |
+|              |      RISE      |             1000-10000             |       0       |                                   30 insertion + 30 deletion                                  | 2 + 1 explain (1000-10000) |
 
 \* Recipro-CAM re-infers part of the graph (usually neck + head or last transformer block) H*W times, where HxW is the feature map size of the target layer.
 
