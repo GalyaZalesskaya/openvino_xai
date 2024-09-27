@@ -20,7 +20,7 @@ class ADCC(BaseMetric):
             https://github.com/aimagelab/ADCC/
     """
 
-    def __init__(self, model, preprocess_fn, postprocess_fn, explainer, device_name="AUTO", **kwargs: Any):
+    def __init__(self, model, preprocess_fn, postprocess_fn, explainer, device_name="CPU", **kwargs: Any):
         super().__init__(
             model=model, preprocess_fn=preprocess_fn, postprocess_fn=postprocess_fn, device_name=device_name
         )

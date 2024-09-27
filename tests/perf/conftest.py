@@ -33,7 +33,7 @@ def pytest_addoption(parser: pytest.Parser):
         help="Number of masks for black box methods." "Defaults to 5000.",
     )
     parser.addoption(
-        "--dataset-data-root",
+        "--dataset-root",
         action="store",
         default="",
         help="Path to directory with dataset images.",
@@ -190,7 +190,7 @@ def fxt_perf_summary(
 @pytest.fixture(scope="session")
 def fxt_dataset_parameters(request: pytest.FixtureRequest) -> tuple[Path | None, Path | None]:
     """Retrieve dataset parameters for tests."""
-    data_root = request.config.getoption("--dataset-data-root")
+    data_root = request.config.getoption("--dataset-root")
     ann_path = request.config.getoption("--dataset-ann-path")
 
     if data_root != "":
