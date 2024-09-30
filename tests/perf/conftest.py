@@ -32,6 +32,18 @@ def pytest_addoption(parser: pytest.Parser):
         default=5000,
         help="Number of masks for black box methods." "Defaults to 5000.",
     )
+    parser.addoption(
+        "--dataset-root",
+        action="store",
+        default="",
+        help="Path to directory with dataset images.",
+    )
+    parser.addoption(
+        "--dataset-ann-path",
+        action="store",
+        default="",
+        help="Path to dataset annotation file",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -173,3 +185,15 @@ def fxt_perf_summary(
     data.to_csv(fxt_output_root / "perf-summary.csv")
     data.to_excel(fxt_output_root / "perf-summary.xlsx")
     print(f"    -> Saved to {fxt_output_root}")
+
+
+@pytest.fixture(scope="session")
+def fxt_dataset_parameters(request: pytest.FixtureRequest) -> tuple[Path | None, Path | None]:
+    """Retrieve dataset parameters for tests."""
+    data_root = request.config.getoption("--dataset-root")
+    ann_path = request.config.getoption("--dataset-ann-path")
+
+    if data_root != "":
+        return (Path(data_root), Path(ann_path) if ann_path else None)
+    else:
+        return (None, None)
