@@ -27,10 +27,11 @@ def pytest_addoption(parser: pytest.Parser):
         "Defaults to 10.",
     )
     parser.addoption(
-        "--num-masks",
+        "--preset",
         action="store",
-        default=5000,
-        help="Number of masks for black box methods." "Defaults to 5000.",
+        default="speed",
+        choices=("speed", "balance", "quality"),
+        help="Efficiency preset for blackbox methods. Defaults to 'speed'.",
     )
     parser.addoption(
         "--dataset-root",
@@ -57,13 +58,13 @@ def fxt_num_repeat(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture(scope="session")
-def fxt_num_masks(request: pytest.FixtureRequest) -> int:
-    """Number of masks for black box methods."""
-    num_masks = int(request.config.getoption("--num-masks"))
-    msg = f"{num_masks = }"
+def fxt_preset(request: pytest.FixtureRequest) -> str:
+    """Efficiency preset for black box methods."""
+    preset = request.config.getoption("--preset")
+    msg = f"{preset = }"
     log.info(msg)
     print(msg)
-    return num_masks
+    return preset
 
 
 @pytest.fixture(scope="session")
@@ -148,6 +149,7 @@ def fxt_perf_summary(
             "Method.RECIPROCAM": "RECIPROCAM",
             "Method.VITRECIPROCAM": "RECIPROCAM",
             "Method.RISE": "RISE",
+            "Method.AISE": "AISE",
         }
     )
     raw_data.to_csv(fxt_output_root / "perf-raw-all.csv", index=False)
